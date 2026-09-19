@@ -1,5 +1,93 @@
 # BiteMap
 
+## QUICK START
+
+### 1. 取得專案
+
+```powershell
+git clone https://github.com/fuuu555/bite-app.git
+cd bite-app
+```
+
+### 2. 安裝開發工具
+
+Windows 11 可直接使用 `winget`：
+
+```powershell
+winget install --id OpenJS.NodeJS.LTS --exact
+winget install --id Python.Python.3.12 --exact
+winget install --id astral-sh.uv --exact
+```
+
+關閉並重新開啟 PowerShell，再安裝 pnpm：
+
+```powershell
+npm install --global pnpm@11.19.0
+```
+
+確認安裝成功：
+
+```powershell
+node --version
+pnpm --version
+python --version
+uv --version
+```
+
+### 3. 安裝 Docker Desktop
+
+下載：[Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/)
+
+也可以直接執行：
+
+```powershell
+winget install --id Docker.DockerDesktop --exact
+```
+
+安裝完成後開啟 Docker Desktop，等左下角顯示 **Engine running**。
+
+### 4. 第一次啟動
+
+在專案根目錄開啟 PowerShell，依序執行：
+
+```powershell
+Copy-Item .env.example .env
+pnpm install
+docker compose pull db
+pnpm db:up
+pnpm db:migrate
+```
+
+`.env.example` 會提交到 Git，提供變數名稱與本機開發預設值；`.env` 是由它複製出的本機設定，不提交到 Git。範例中的帳號與密碼只適用於本機 Docker，不可用於正式環境。
+
+`docker compose pull db` 會下載 PostGIS image；`pnpm db:up` 會建立並啟動資料庫容器，不需要手動複製 Docker 資料庫。
+
+### 5. 啟動網站
+
+開啟兩個 PowerShell 視窗：
+
+```powershell
+# 視窗 1：後端
+pnpm dev:backend
+```
+
+```powershell
+# 視窗 2：前端
+pnpm dev:frontend
+```
+
+開啟 <http://localhost:3000> 即可查看網站。
+
+如果 `3000` 已被使用，請使用終端機顯示的其他網址。
+
+### 停止
+
+前後端按 `Ctrl+C`，資料庫執行：
+
+```powershell
+pnpm db:down
+```
+
 ## 技術棧
 
 本技術方案依據 [`FUNCTIONAL_REQUIREMENTS.md`](./FUNCTIONAL_REQUIREMENTS.md) 設計。產品先以響應式 Web 推出，再逐步補齊安裝、推播與離線殼層等 PWA 能力；架構採模組化單體，避免 MVP 階段過早拆分微服務。
@@ -218,8 +306,8 @@ notifications  站內通知與 Web Push
 ```text
 bite/
 ├── apps/
-│   ├── web/                 # Next.js Web / PWA
-│   ├── api/                 # FastAPI modular monolith
+│   ├── frontend/            # Next.js Web / PWA
+│   ├── backend/             # FastAPI modular monolith
 │   └── worker/              # Celery 啟動與工作設定
 ├── packages/
 │   ├── api-client/          # OpenAPI 產生的 TypeScript Client

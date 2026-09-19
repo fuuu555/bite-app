@@ -1,0 +1,22 @@
+{
+  "name": "bitemap",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev:frontend": "pnpm --dir apps/frontend dev",
+    "build:frontend": "pnpm --dir apps/frontend build",
+    "lint:frontend": "pnpm --dir apps/frontend lint",
+    "typecheck:frontend": "pnpm --dir apps/frontend typecheck",
+    "test:frontend": "pnpm --dir apps/frontend test",
+    "db:up": "docker compose up -d db",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f db",
+    "db:migrate": "uv run --project apps/backend alembic -c apps/backend/alembic.ini upgrade head",
+    "db:downgrade": "uv run --project apps/backend alembic -c apps/backend/alembic.ini downgrade -1",
+    "dev:backend": "uv run --project apps/backend uvicorn api.main:app --app-dir apps/backend/src --reload --port 8000",
+    "lint:backend": "uv run --project apps/backend ruff check apps/backend/src apps/backend/tests",
+    "typecheck:backend": "uv run --project apps/backend pyright apps/backend/src apps/backend/tests",
+    "test:backend": "uv run --project apps/backend pytest",
+    "check:stage0": "pnpm lint:frontend && pnpm typecheck:frontend && pnpm test:frontend && pnpm build:frontend && pnpm lint:backend && pnpm typecheck:backend && pnpm test:backend"
+  }
+}

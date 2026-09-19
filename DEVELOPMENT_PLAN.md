@@ -60,8 +60,8 @@
 #### 專案結構
 
 - 初始化 Git repository，加入適合 Node、Python、環境檔及本機工具的 `.gitignore`。
-- 建立 `apps/web`：Next.js App Router、React、TypeScript。
-- 建立 `apps/api`：FastAPI、Pydantic、SQLAlchemy 2、Alembic。
+- 建立 `apps/frontend`：Next.js App Router、React、TypeScript。
+- 建立 `apps/backend`：FastAPI、Pydantic、SQLAlchemy 2、Alembic。
 - 建立 `packages/api-client`：保留給 OpenAPI 產生的 TypeScript Client。
 - 建立 `tests/e2e`：Playwright 測試入口。
 
