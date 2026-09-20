@@ -33,14 +33,16 @@ jobs:
       - name: Checkout / 取出程式碼
         uses: actions/checkout@v4
 
+      - name: Setup pnpm / 設定 pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
       - name: Setup Node.js / 設定 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
-
-      - name: Enable pnpm / 啟用 pnpm
-        run: corepack enable
 
       - name: Install JavaScript dependencies / 安裝 JavaScript 依賴
         run: pnpm install --frozen-lockfile
