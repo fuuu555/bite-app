@@ -1,0 +1,14 @@
+node_modules
+.next
+coverage
+apps/backend/.venv
+apps/backend/.ruff_cache
+apps/backend/.pytest_cache
+pnpm-lock.yaml
+uv.lock
+*.ico
+apps/frontend/public/maplibre-gl-worker.mjs
+apps/frontend/public/maplibre-gl-shared.mjs
+.env.example
+apps/backend/migrations/README
+apps/backend/pyrightconfig.json

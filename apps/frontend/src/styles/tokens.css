@@ -1,0 +1,28 @@
+:root {
+  --color-canvas: #f6f4ee;
+  --color-surface: #ffffff;
+  --color-surface-muted: #eeece5;
+  --color-ink: #142b32;
+  --color-ink-muted: #5d6d71;
+  --color-hairline: #d9ddd9;
+  --color-action: #f26b4f;
+  --color-action-hover: #d9553b;
+  --color-water: #b9ded7;
+  --color-cluster: #203038;
+  --color-success: #397a57;
+  --color-warning: #9a6c16;
+  --color-danger: #a64040;
+  --color-cuisine-taiwan: #f26b4f;
+  --color-cuisine-breakfast: #e7b75a;
+  --color-cuisine-japanese: #4e8f6b;
+  --color-cuisine-seafood: #4277a6;
+  --color-cuisine-cafe: #a74a5b;
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --shadow-panel: 0 18px 48px rgb(20 43 50 / 10%);
+  --shadow-control: 0 6px 18px rgb(20 43 50 / 9%);
+  --transition-ui: 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  --sidebar-width: 248px;
+  --user-footer-height: 76px;
+}

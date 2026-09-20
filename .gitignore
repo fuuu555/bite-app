@@ -17,6 +17,8 @@ node_modules/
 out/
 coverage/
 *.tsbuildinfo
+test-results/
+playwright-report/
 
 # Tooling and local data
 .superpowers/
@@ -31,4 +33,3 @@ Thumbs.db
 # Local database volumes / logs
 *.log
 postgres-data/
-

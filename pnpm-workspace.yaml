@@ -1,5 +1,6 @@
 packages:
   - apps/frontend
+  - packages/api-client
 allowBuilds:
   esbuild: true
   unrs-resolver: true

@@ -1,11 +1,13 @@
+"""Alembic environment / Alembic migration 執行環境。"""
+
 import asyncio
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
 from api.config import get_settings
 from api.db import Base
 
@@ -26,6 +28,7 @@ target_metadata = Base.metadata
 
 # Keep the database URL in one place so local, CI, and deployed migrations
 # all use the same settings as the FastAPI application.
+# 集中管理資料庫 URL，確保本機、CI 與部署 migration 使用同一份設定。
 config.set_main_option(
     "sqlalchemy.url",
     get_settings().database_url.replace("%", "%%"),
@@ -38,7 +41,7 @@ config.set_main_option(
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
+    """Run migrations in 'offline' mode / 以 offline 模式執行 migration。
 
     This configures the context with just a URL
     and not an Engine, though an Engine is acceptable
@@ -62,6 +65,7 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection: Connection) -> None:
+    """Apply migrations on an existing connection / 使用既有連線套用 migration。"""
     context.configure(connection=connection, target_metadata=target_metadata)
 
     with context.begin_transaction():
@@ -69,7 +73,9 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    """In this scenario we need to create an Engine
+    """Run async migrations / 建立非同步 engine 並執行 migration。
+
+    In this scenario we need to create an Engine
     and associate a connection with the context.
 
     """
@@ -87,7 +93,7 @@ async def run_async_migrations() -> None:
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode."""
+    """Run migrations in 'online' mode / 以 online 模式執行 migration。"""
 
     asyncio.run(run_async_migrations())
 
