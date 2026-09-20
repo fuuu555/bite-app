@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import type { ReactNode } from "react";
 import "./globals.css";
 
 // Root metadata and typography are shared by every route.
@@ -20,7 +21,7 @@ export const metadata: Metadata = {
   description: "探索附近好吃的店，從地圖開始。",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html
       lang="zh-Hant"
