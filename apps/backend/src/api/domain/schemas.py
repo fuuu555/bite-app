@@ -154,3 +154,21 @@ class MapRestaurantsResponse(BaseModel):
 
     status: Literal["ok", "zoom_required"]
     restaurants: list[MapRestaurantResponse]
+
+
+class MapSearchLocationResponse(BaseModel):
+    """External location candidate / 外部地區定位候選。"""
+
+    label: str
+    region: str | None = None
+    latitude: float
+    longitude: float
+    source: str
+
+
+class MapSearchResponse(BaseModel):
+    """Grouped map search results / 分組的地圖搜尋結果。"""
+
+    status: Literal["ok", "partial"]
+    locations: list[MapSearchLocationResponse]
+    restaurants: list[MapRestaurantResponse]

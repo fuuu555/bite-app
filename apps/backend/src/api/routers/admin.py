@@ -11,11 +11,17 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from api.config import get_settings
-from api.db import get_session
-from api.geocoding import GeocodingProvider, get_geocoding_provider
-from api.models import Cuisine, Restaurant, User
-from api.schemas import (
+from api.core.config import get_settings
+from api.core.database import get_session
+from api.core.security import (
+    create_admin_session,
+    require_admin,
+    revoke_admin_session,
+    set_admin_session_cookie,
+    verify_password,
+)
+from api.domain.models import Cuisine, Restaurant, User
+from api.domain.schemas import (
     AdminLoginRequest,
     AdminUserResponse,
     CuisineCreate,
@@ -28,14 +34,8 @@ from api.schemas import (
     RestaurantUpdate,
     ReverseGeocodeRequest,
 )
-from api.security import (
-    create_admin_session,
-    require_admin,
-    revoke_admin_session,
-    set_admin_session_cookie,
-    verify_password,
-)
-from api.services import (
+from api.integrations.geocoding import GeocodingProvider, get_geocoding_provider
+from api.services.admin import (
     change_restaurant_status,
     create_restaurant,
     get_restaurant,

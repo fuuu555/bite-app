@@ -16,6 +16,10 @@ test("administrator can sign in and create a cuisine", async ({ page }, testInfo
     await page.getByRole("button", { name: "登入管理後台" }).click();
 
     await expect(page.getByRole("heading", { name: "店家管理" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "群聚展示" })).toHaveAttribute(
+      "href",
+      "/map?cluster-demo=1",
+    );
     await page.goto("/admin/cuisines");
     await expect(page.getByRole("heading", { name: "料理分類" })).toBeVisible();
 
@@ -44,7 +48,10 @@ test("administrator can sign in and create a cuisine", async ({ page }, testInfo
     if (!markerBox) throw new Error("map marker has no bounding box");
     await page.mouse.move(markerBox.x + markerBox.width / 2, markerBox.y + markerBox.height / 2);
     await page.mouse.down();
-    await page.mouse.move(markerBox.x + markerBox.width / 2 + 24, markerBox.y + markerBox.height / 2);
+    await page.mouse.move(
+      markerBox.x + markerBox.width / 2 + 24,
+      markerBox.y + markerBox.height / 2,
+    );
     await page.mouse.up();
 
     await page.getByRole("button", { name: "發布店家" }).click();

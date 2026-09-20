@@ -66,6 +66,15 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               {item.label}
             </Link>
           ))}
+          <Link
+            href="/map?cluster-demo=1"
+            className="admin-nav__quick-link"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Icon name="map" />
+            群聚展示
+          </Link>
         </nav>
         <div className="admin-account">
           <span title={user.email}>{user.email}</span>

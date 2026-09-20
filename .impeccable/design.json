@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-20T10:00:00+08:00",
+  "title": "Design System: BiteMap",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Warm Canvas",
+        "canonical": "#f6f4ee",
+        "tonalRamp": [
+          "#25231f",
+          "#514d44",
+          "#7e786b",
+          "#aaa496",
+          "#d5d1c8",
+          "#e5e2dc",
+          "#f0eee9",
+          "#faf9f6"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Deep Map Ink",
+        "canonical": "#142b32",
+        "tonalRamp": [
+          "#0b181c",
+          "#142b32",
+          "#254b54",
+          "#426b73",
+          "#718f95",
+          "#a4b8bc",
+          "#d4dfe0",
+          "#f1f5f5"
+        ]
+      },
+      "action-coral": {
+        "role": "primary",
+        "displayName": "Action Coral",
+        "canonical": "#f26b4f",
+        "tonalRamp": [
+          "#42150e",
+          "#74261a",
+          "#a63a28",
+          "#d9523b",
+          "#f26b4f",
+          "#f69a86",
+          "#fac8bc",
+          "#fdf0ec"
+        ]
+      },
+      "map-water": {
+        "role": "secondary",
+        "displayName": "Quiet Map Water",
+        "canonical": "#b9ded7",
+        "tonalRamp": [
+          "#16312d",
+          "#28544d",
+          "#42786f",
+          "#659d93",
+          "#8fc1b8",
+          "#b9ded7",
+          "#d9eeea",
+          "#f1f9f7"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Headline", "purpose": "Page-level messages and empty states." },
+      "title": { "displayName": "Title", "purpose": "Restaurant and panel titles." },
+      "body": { "displayName": "Body", "purpose": "Explanatory and supporting copy." },
+      "label": { "displayName": "Label", "purpose": "Navigation, controls, cuisine, and state." }
+    },
+    "shadows": [
+      {
+        "name": "control",
+        "value": "0 6px 18px rgb(20 43 50 / 9%)",
+        "purpose": "Compact controls floating above map detail."
+      },
+      {
+        "name": "panel",
+        "value": "0 18px 48px rgb(20 43 50 / 10%)",
+        "purpose": "Restaurant previews and larger panels."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ui",
+        "value": "180ms cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Short state changes and preview entry."
+      }
+    ],
+    "breakpoints": [{ "name": "mobile", "value": "767px" }]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The main action on a neutral surface.",
+      "html": "<button class=\"ds-button-primary\">開啟地圖</button>",
+      "css": ".ds-button-primary { min-height: 44px; padding: 0 18px; border: 0; border-radius: var(--radius-sm, 8px); background: var(--color-action, #f26b4f); color: #fff; font-weight: 650; cursor: pointer; transition: background 180ms cubic-bezier(.22,1,.36,1); } .ds-button-primary:hover { background: var(--color-action-hover, #d9553b); } .ds-button-primary:focus-visible { outline: 3px solid #142b32; outline-offset: 3px; }"
+    },
+    {
+      "name": "Map Search",
+      "kind": "button",
+      "refersTo": "map-search",
+      "description": "A transient action shown only after the viewport changes.",
+      "html": "<button class=\"ds-map-search\">搜尋此區域</button>",
+      "css": ".ds-map-search { min-height: 44px; padding: 0 17px; border: 0; border-radius: 999px; background: var(--color-ink, #142b32); color: #fff; font-weight: 700; box-shadow: 0 6px 18px rgb(20 43 50 / 9%); cursor: pointer; } .ds-map-search:hover { background: #203b43; } .ds-map-search:focus-visible { outline: 3px solid #f26b4f; outline-offset: 3px; }"
+    },
+    {
+      "name": "Restaurant Preview",
+      "kind": "card",
+      "refersTo": "preview-card",
+      "description": "The compact single-store summary shown above the Footer.",
+      "html": "<article class=\"ds-preview\"><small>台灣料理</small><h2>店家名稱</h2><p>$200 以下</p><a href=\"#\">查看餐廳</a></article>",
+      "css": ".ds-preview { width: 320px; padding: 20px; border: 1px solid #d9ddd9; border-radius: 22px; background: #fff; color: #142b32; box-shadow: 0 18px 48px rgb(20 43 50 / 10%); font-family: var(--font-geist-sans), 'Noto Sans TC', sans-serif; } .ds-preview small { color: #397a57; font-weight: 750; } .ds-preview h2 { margin: 10px 0 0; font-size: 1.3rem; letter-spacing: -.025em; } .ds-preview p { margin: 7px 0 0; color: #5d6d71; } .ds-preview a { display: inline-block; margin-top: 18px; color: #d9553b; font-weight: 750; text-decoration: none; } .ds-preview a:focus-visible { outline: 3px solid #142b32; outline-offset: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Friendly City Map",
+    "overview": "BiteMap is a practical cartographic interface with warm, approachable surfaces. The map remains the main content and controls float above it as compact tools.",
+    "keyCharacteristics": [
+      "Map-first composition with restrained overlays.",
+      "Warm neutral surfaces and one scarce coral action color.",
+      "Rounded controls with soft, ambient depth.",
+      "Desktop and mobile share one visual language and reflow deliberately."
+    ],
+    "rules": [
+      {
+        "name": "The One Coral Rule",
+        "body": "Coral identifies one active route or next action at a time; cuisine colors must not compete with navigation state.",
+        "section": "colors"
+      },
+      {
+        "name": "The Plain-Language Rule",
+        "body": "Controls name the action in Traditional Chinese; status text states the condition and recovery.",
+        "section": "typography"
+      },
+      {
+        "name": "The Map Stays Behind Rule",
+        "body": "Depth separates controls from geographic content, never creates ornamental floating card stacks.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the map visible and make overlays compact.",
+      "Do pair cuisine color with readable text or an icon.",
+      "Do retain old map results while a new visible-area query is running or fails.",
+      "Do use Tabler icons at a consistent stroke weight."
+    ],
+    "donts": [
+      "Don't add dashboard cards, metrics, or promotional content to the public map.",
+      "Don't use coral for passive decoration or cuisine data.",
+      "Don't hide active, loading, empty, or failure state behind icon-only feedback.",
+      "Don't add 3D map pitch or buildings to the current 2D map experience."
+    ]
+  }
+}

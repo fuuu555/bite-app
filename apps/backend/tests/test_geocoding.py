@@ -1,6 +1,6 @@
 """Geocoding normalization tests / 地址定位正規化測試。"""
 
-from api.geocoding import normalize_taiwan_address
+from api.integrations.geocoding import normalize_taiwan_address
 
 
 def test_normalize_taiwan_address_reorders_postal_code_and_house_number() -> None:

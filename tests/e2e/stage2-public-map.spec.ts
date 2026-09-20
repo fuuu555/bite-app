@@ -31,6 +31,7 @@ test("public map supports manual area search and restaurant preview", async ({ p
   await page.goto("/map");
   const map = page.getByLabel("公開店家地圖");
   await expect(map).toBeVisible();
+  await expect(page.locator(".public-map-brand")).toHaveCount(0);
   await expect(page.getByText(/定位未開啟/)).toBeVisible({ timeout: 10_000 });
   await expect(page.getByRole("button", { name: /公開地圖驗收店家/ })).toBeVisible({
     timeout: 15_000,
@@ -51,7 +52,36 @@ test("public map supports manual area search and restaurant preview", async ({ p
   await page.getByRole("button", { name: /公開地圖驗收店家/ }).click();
   await expect(page.getByRole("heading", { name: "公開地圖驗收店家" })).toBeVisible();
   await expect(page.getByText("台灣料理")).toBeVisible();
+  await expect(page.getByRole("button", { name: "搜尋此區域" })).toHaveCount(0);
+
+  await page.getByRole("link", { name: "查看餐廳" }).click();
+  await expect(page).toHaveURL(/\/restaurants\/71c352a3-6609-4dc7-9f76-8eb284a874b8$/);
+  await expect(page.getByRole("heading", { name: "餐廳詳細頁準備中" })).toBeVisible();
+  await page.getByRole("link", { name: "開啟地圖" }).click();
+  await expect(page).toHaveURL(/\/map$/);
 
   await page.getByRole("link", { name: "約飯" }).click();
   await expect(page.getByRole("heading", { name: "約飯功能準備中" })).toBeVisible();
+});
+
+test("public map exposes a retry action after an API failure", async ({ page }) => {
+  let mapRequestCount = 0;
+  await page.route("**/api/v1/map/restaurants?*", async (route) => {
+    mapRequestCount += 1;
+    if (mapRequestCount === 1) {
+      await route.abort("failed");
+      return;
+    }
+
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ status: "ok", restaurants: [] }),
+    });
+  });
+
+  await page.goto("/map");
+  await expect(page.getByRole("button", { name: "搜尋此區域" })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole("button", { name: "搜尋此區域" }).click();
+  await expect.poll(() => mapRequestCount).toBe(2);
+  await expect(page.getByText("這個區域目前沒有已發布店家。")).toBeVisible();
 });

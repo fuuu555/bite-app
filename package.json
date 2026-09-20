@@ -17,13 +17,15 @@
     "db:logs": "docker compose logs -f db",
     "db:migrate": "uv run --project apps/backend alembic -c apps/backend/alembic.ini upgrade head",
     "db:downgrade": "uv run --project apps/backend alembic -c apps/backend/alembic.ini downgrade -1",
-    "admin:create": "uv run --project apps/backend python -m api.bootstrap_admin",
+    "admin:create": "uv run --project apps/backend python -m api.scripts.bootstrap_admin",
     "dev:backend": "uv run --project apps/backend uvicorn api.main:app --app-dir apps/backend/src --reload --port 8000",
     "lint:backend": "uv run --project apps/backend ruff check apps/backend/src apps/backend/tests",
     "typecheck:backend": "uv run --project apps/backend pyright apps/backend/src apps/backend/tests",
-    "test:backend": "uv run --project apps/backend pytest",
+    "test:backend": "uv run --project apps/backend pytest -c apps/backend/pyproject.toml",
     "check:stage0": "pnpm format:check && pnpm lint:frontend && pnpm typecheck:frontend && pnpm test:frontend && pnpm build:frontend && pnpm lint:backend && pnpm typecheck:backend && pnpm test:backend && pnpm exec playwright test --list",
-    "check:stage1": "pnpm check:stage0"
+    "check:stage1": "pnpm check:stage0",
+    "check:stage2": "pnpm check:stage1 && pnpm exec playwright test tests/e2e/stage0.spec.ts tests/e2e/stage2-public-map.spec.ts",
+    "check:stage3": "pnpm check:stage2 && pnpm exec playwright test tests/e2e/stage3-map-search-filters.spec.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",

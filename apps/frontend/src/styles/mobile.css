@@ -23,7 +23,7 @@
 
   .admin-nav {
     width: 100%;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 8px;
   }
 
@@ -181,20 +181,57 @@
     min-height: 420px;
   }
 
-  .public-map-brand {
-    top: 10px;
+  .public-map-top-controls {
+    top: 72px;
+    right: 10px;
     left: 10px;
-    padding: 7px 10px 7px 7px;
+    width: auto;
+    transform: none;
   }
 
-  .public-map-brand > span {
-    width: 31px;
-    height: 31px;
+  .map-search-bar {
+    min-height: 46px;
+  }
+
+  .map-search-bar__filter {
+    padding: 0 10px;
+  }
+
+  .map-search-bar__filter span {
+    display: none;
+  }
+
+  .map-search-results {
+    max-height: min(42dvh, 340px);
+  }
+
+  .map-filter-popover {
+    max-height: min(58dvh, 470px);
+    overflow-y: auto;
+    padding: 15px;
+  }
+
+  .map-filter-popover__fields {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .map-filter-popover__actions {
+    position: sticky;
+    bottom: -15px;
+    margin-right: -15px;
+    margin-left: -15px;
+    padding: 12px 15px max(12px, env(safe-area-inset-bottom));
+    background: rgb(255 255 255 / 98%);
   }
 
   .map-search-area {
-    top: 72px;
+    max-width: 100%;
     white-space: nowrap;
+  }
+
+  .map-active-filter-chips {
+    margin: 0 -2px;
   }
 
   .public-map-message {

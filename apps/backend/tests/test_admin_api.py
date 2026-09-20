@@ -9,12 +9,12 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import delete, select, text
 
-from api.db import session_factory
-from api.geocoding import get_geocoding_provider
+from api.core.database import session_factory
+from api.core.security import hash_password
+from api.domain.models import AdminSession, AuditLog, AuditLogChange, Cuisine, Restaurant, User
+from api.domain.schemas import GeocodingCandidate
+from api.integrations.geocoding import get_geocoding_provider
 from api.main import app
-from api.models import AdminSession, AuditLog, AuditLogChange, Cuisine, Restaurant, User
-from api.schemas import GeocodingCandidate
-from api.security import hash_password
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_DATABASE_TESTS") != "1",
