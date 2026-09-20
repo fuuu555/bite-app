@@ -13,9 +13,9 @@ from fastapi import Cookie, Depends, HTTPException, Response, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from api.config import get_settings
-from api.db import get_session
-from api.models import AdminSession, User
+from api.core.config import get_settings
+from api.core.database import get_session
+from api.domain.models import AdminSession, User
 
 password_hasher = PasswordHasher()
 

@@ -7,9 +7,9 @@ import asyncio
 
 from sqlalchemy import select
 
-from api.db import session_factory
-from api.models import User
-from api.security import hash_password
+from api.core.database import session_factory
+from api.core.security import hash_password
+from api.domain.models import User
 
 
 async def create_admin(email: str, password: str) -> None:

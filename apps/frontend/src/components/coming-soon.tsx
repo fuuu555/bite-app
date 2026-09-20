@@ -8,12 +8,7 @@ type ComingSoonProps = {
   reference?: string;
 };
 
-export function ComingSoon({
-  title,
-  description,
-  backHref = "/",
-  reference,
-}: ComingSoonProps) {
+export function ComingSoon({ title, description, backHref = "/", reference }: ComingSoonProps) {
   return (
     <main className="coming-soon">
       <div className="coming-soon__brand" aria-hidden="true">

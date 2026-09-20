@@ -10,8 +10,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from api.models import AuditLog, AuditLogChange, Cuisine, Restaurant, User
-from api.schemas import CuisineResponse, RestaurantCreate, RestaurantResponse, RestaurantUpdate
+from api.domain.models import AuditLog, AuditLogChange, Cuisine, Restaurant, User
+from api.domain.schemas import (
+    CuisineResponse,
+    RestaurantCreate,
+    RestaurantResponse,
+    RestaurantUpdate,
+)
 
 
 def restaurant_snapshot(restaurant: Restaurant) -> dict[str, Any]:

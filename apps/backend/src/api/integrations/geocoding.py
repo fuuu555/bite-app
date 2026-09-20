@@ -7,8 +7,8 @@ from typing import Any, Protocol
 
 import httpx
 
-from api.config import get_settings
-from api.schemas import GeocodingCandidate
+from api.core.config import get_settings
+from api.domain.schemas import GeocodingCandidate
 
 
 class GeocodingProvider(Protocol):

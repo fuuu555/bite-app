@@ -6,8 +6,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.exc import SQLAlchemyError
 
-from api.config import get_settings
-from api.db import check_database
+from api.core.config import get_settings
+from api.core.database import check_database
 from api.routers.admin import router as admin_router
 from api.routers.public_map import router as public_map_router
 
