@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql+asyncpg://bitemap:bitemap_ci@127.0.0.1:5433/bitemap
+      API_CORS_ORIGINS: http://127.0.0.1:3000
+      RUN_DATABASE_TESTS: "1"
+      E2E_ADMIN_EMAIL: stage1-e2e@example.test
+      E2E_ADMIN_PASSWORD: stage1-e2e-password
+    services:
+      postgis:
+        image: postgis/postgis:17-3.5
+        ports:
+          - 5433:5432
+        env:
+          POSTGRES_DB: bitemap
+          POSTGRES_USER: bitemap
+          POSTGRES_PASSWORD: bitemap_ci
+        options: >-
+          --health-cmd "pg_isready -U bitemap -d bitemap"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Checkout / 取出程式碼
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js / 設定 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Enable pnpm / 啟用 pnpm
+        run: corepack enable
+
+      - name: Install JavaScript dependencies / 安裝 JavaScript 依賴
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Python / 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup uv / 設定 uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.8"
+
+      - name: Install Python dependencies / 安裝 Python 依賴
+        run: uv sync --project apps/backend
+
+      - name: Migrate database / 更新資料庫
+        run: pnpm db:migrate
+
+      - name: Create E2E administrator / 建立 E2E 管理員
+        run: >-
+          pnpm admin:create
+          --email "$E2E_ADMIN_EMAIL"
+          --password "$E2E_ADMIN_PASSWORD"
+
+      - name: Format check / 格式檢查
+        run: pnpm format:check
+
+      - name: Stage 1 quality checks / Stage 1 品質檢查
+        run: pnpm check:stage1
+
+      - name: Install Playwright browser / 安裝 Playwright 瀏覽器
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Browser E2E / 瀏覽器端到端測試
+        run: pnpm test:e2e

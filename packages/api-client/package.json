@@ -1,0 +1,13 @@
+{
+  "name": "@bitemap/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "openapi-typescript http://localhost:8000/openapi.json -o src/schema.d.ts"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.8.0"
+  },
+  "packageManager": "pnpm@11.19.0"
+}

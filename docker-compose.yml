@@ -1,12 +1,15 @@
 services:
   db:
+    # PostGIS is the only container required by Stage 0 / Stage 0 只需要 PostGIS。
     image: postgis/postgis:17-3.5
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-bitemap}
       POSTGRES_USER: ${POSTGRES_USER:-bitemap}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bitemap_local}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bitemap_local_dev_only}
     ports:
+      # Host 5433 avoids clashing with an existing local PostgreSQL on 5432.
+      # 主機使用 5433，避免與本機既有 PostgreSQL 的 5432 衝突。
       - "5433:5432"
     volumes:
       - bitemap-postgres-data:/var/lib/postgresql/data
