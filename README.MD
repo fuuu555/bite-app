@@ -88,8 +88,11 @@ pnpm admin:create --email admin@example.local --password "請替換成至少6字
 
 管理員登入網址：<http://localhost:3000/admin/login>
 
-一般使用者登入與管理員登入分開；店家新增、編輯、發布及封存等管理功能請從此管理後台進入。
+一般使用者首頁：<http://localhost:3000>
 
+公開店家地圖：<http://localhost:3000/map>
+
+一般使用者登入與管理員登入分開；店家新增、編輯、發布及封存等管理功能請從此管理後台進入。
 
 ### 查看 PostgreSQL 資料表
 
@@ -148,33 +151,35 @@ Next.js 只負責 Web／PWA 與必要的前端伺服器渲染，不承擔核心�
 
 ### 核心技術選型
 
-| 層級           | 技術                                                         | 用途與選擇理由                                                                       |
-| -------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| Web／PWA       | Next.js App Router、React、TypeScript                        | 建立響應式 Web；後續加入 Manifest、Service Worker、安裝與 Web Push，不需重寫前端     |
-| UI             | Tailwind CSS、shadcn/ui                                      | 建立一致的元件與設計 Token，同時保留客製化空間                                       |
-| 表單與驗證     | React Hook Form、Zod                                         | 處理登入、留言、約飯與個人資料表單；提供前端即時驗證                                 |
-| 伺服器狀態     | TanStack Query                                               | 管理 API 快取、重新驗證、分頁、樂觀更新與錯誤重試                                    |
-| 輕量前端狀態   | Zustand                                                      | 管理篩選條件、建立約飯流程及純 UI 狀態；不複製伺服器資料                             |
-| 地圖渲染       | MapLibre GL JS                                               | 負責 2D 地圖畫布、縮放、拖曳、圖釘與互動事件；Stage 1 管理地圖與公開地圖共用渲染核心 |
-| 地圖底圖       | OpenFreeMap                                                  | 提供道路、區域與地名底圖；目前使用 Positron 2D style，不放入 3D 建築圖層             |
-| 地圖資料格式   | GeoJSON                                                      | 將後端回傳的資料庫店家轉成地圖來源，支援群聚與單店圖層                               |
-| 店家群聚       | MapLibre GeoJSON source clustering                           | 公開地圖依縮放層級將資料庫店家合併成群聚圓圈並顯示店家數量                           |
-| 料理分類標記   | MapLibre circle／symbol layer + cuisine color                | 單店放大後使用資料庫料理分類色票顯示標記，並以圖例、文字或圖示輔助辨識               |
-| 地址搜尋定位   | FastAPI Geocoding Provider（Stage 1 使用 Nominatim adapter） | 將地址轉成座標；結果只用於定位，不會把外部店家寫入或混入 BiteMap 店家資料            |
-| 點圖反向定位   | FastAPI reverse geocoding endpoint                           | 管理員在地圖點擊或拖曳後，將座標轉回地址並同步到新增／編輯店家表單                   |
-| API            | Python、FastAPI、Pydantic                                    | 實作 REST API、權限與商業規則；亦方便後續加入評論分析與 AI 摘要                      |
-| ORM／Migration | SQLAlchemy 2、Alembic                                        | 明確管理資料存取、交易與資料庫版本變更                                               |
-| API 合約       | OpenAPI + 產生式 TypeScript Client                           | 由 FastAPI 規格產生前端型別與 Client，避免前後端欄位不一致                           |
-| 主資料庫       | PostgreSQL                                                   | 儲存使用者、餐廳、留言、再訪、約飯、投票、訊息與社交關係等交易資料                   |
-| 空間資料       | PostGIS                                                      | 儲存餐廳座標、距離篩選、範圍查詢與地圖資料                                           |
-| 快取／即時協調 | Redis                                                        | 快取熱門查詢、限流、WebSocket Pub/Sub、背景工作 Broker；不作永久資料來源             |
-| 背景工作       | Celery                                                       | 執行通知、AI 摘要、評論可信度分析、圖片處理及未來區域資料蒐集等非同步工作            |
-| 即時通訊       | FastAPI WebSocket + Redis Pub/Sub                            | 支援私訊、好友聊天及約飯聊天室；所有訊息仍寫入 PostgreSQL                            |
-| 檔案儲存       | S3 相容 Object Storage                                       | 儲存頭像、留言照片、餐點照片與菜單素材；資料庫只保存中繼資料與物件鍵值               |
-| 測試           | Pytest、Vitest、React Testing Library、Playwright            | 分別覆蓋後端、前端元件與跨模組核心流程                                               |
-| 開發環境       | Docker Compose、pnpm、uv                                     | 讓 Web、API、Worker、PostgreSQL 與 Redis 可重現地在本機啟動                          |
-| CI/CD          | GitHub Actions、Docker                                       | 執行格式檢查、型別檢查、測試、Migration 檢查與映像建置                               |
-| 可觀測性       | OpenTelemetry、Sentry、結構化 JSON Log                       | 追蹤 API、背景工作與前端錯誤，並保留跨服務 Trace ID                                  |
+| 層級           | 技術                                                         | 用途與選擇理由                                                                                |
+| -------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Web／PWA       | Next.js App Router、React、TypeScript                        | 建立響應式 Web；後續加入 Manifest、Service Worker、安裝與 Web Push，不需重寫前端              |
+| UI             | Tailwind CSS、shadcn/ui                                      | 建立一致的元件與設計 Token，同時保留客製化空間                                                |
+| 表單與驗證     | React Hook Form、Zod                                         | 處理登入、留言、約飯與個人資料表單；提供前端即時驗證                                          |
+| 伺服器狀態     | TanStack Query                                               | 管理 API 快取、重新驗證、分頁、樂觀更新與錯誤重試                                             |
+| 輕量前端狀態   | Zustand                                                      | 管理篩選條件、建立約飯流程及純 UI 狀態；不複製伺服器資料                                      |
+| 地圖渲染       | MapLibre GL JS                                               | 負責 2D 地圖畫布、縮放、拖曳、圖釘與互動事件；Stage 1 管理地圖與 Stage 2 公開地圖共用渲染核心 |
+| 地圖底圖       | OpenFreeMap                                                  | 提供道路、區域與地名底圖；目前使用 Positron 2D style，不放入 3D 建築圖層                      |
+| 地圖資料格式   | GeoJSON                                                      | 將後端回傳的資料庫店家轉成地圖來源，支援群聚與單店圖層                                        |
+| 店家群聚       | MapLibre GeoJSON source clustering                           | 公開地圖依縮放層級將資料庫店家合併成群聚圓圈並顯示店家數量                                    |
+| 料理分類標記   | MapLibre circle／symbol layer + cuisine color                | 單店放大後使用資料庫料理分類色票顯示標記，並以圖例、文字或圖示輔助辨識                        |
+| 地圖搜尋       | FastAPI map search + Geocoding Provider                      | 搜尋列分離處理地區／地址與 BiteMap 已發布店家，最多回傳 5 筆候選                              |
+| 地圖篩選       | PostGIS bounds + city／district／cuisine／price query        | 篩選先暫存，按「套用篩選」後再按「搜尋此區域」查詢，避免每次點擊都發送請求                    |
+| 地址搜尋定位   | FastAPI Geocoding Provider（Stage 1 使用 Nominatim adapter） | 將地址轉成座標；結果只用於定位，不會把外部店家寫入或混入 BiteMap 店家資料                     |
+| 點圖反向定位   | FastAPI reverse geocoding endpoint                           | 管理員在地圖點擊或拖曳後，將座標轉回地址並同步到新增／編輯店家表單                            |
+| API            | Python、FastAPI、Pydantic                                    | 實作 REST API、權限與商業規則；亦方便後續加入評論分析與 AI 摘要                               |
+| ORM／Migration | SQLAlchemy 2、Alembic                                        | 明確管理資料存取、交易與資料庫版本變更                                                        |
+| API 合約       | OpenAPI + 產生式 TypeScript Client                           | 由 FastAPI 規格產生前端型別與 Client，避免前後端欄位不一致                                    |
+| 主資料庫       | PostgreSQL                                                   | 儲存使用者、餐廳、留言、再訪、約飯、投票、訊息與社交關係等交易資料                            |
+| 空間資料       | PostGIS                                                      | 儲存餐廳座標、距離篩選、範圍查詢與地圖資料                                                    |
+| 快取／即時協調 | Redis                                                        | 快取熱門查詢、限流、WebSocket Pub/Sub、背景工作 Broker；不作永久資料來源                      |
+| 背景工作       | Celery                                                       | 執行通知、AI 摘要、評論可信度分析、圖片處理及未來區域資料蒐集等非同步工作                     |
+| 即時通訊       | FastAPI WebSocket + Redis Pub/Sub                            | 支援私訊、好友聊天及約飯聊天室；所有訊息仍寫入 PostgreSQL                                     |
+| 檔案儲存       | S3 相容 Object Storage                                       | 儲存頭像、留言照片、餐點照片與菜單素材；資料庫只保存中繼資料與物件鍵值                        |
+| 測試           | Pytest、Vitest、React Testing Library、Playwright            | 分別覆蓋後端、前端元件與跨模組核心流程                                                        |
+| 開發環境       | Docker Compose、pnpm、uv                                     | 讓 Web、API、Worker、PostgreSQL 與 Redis 可重現地在本機啟動                                   |
+| CI/CD          | GitHub Actions、Docker                                       | 執行格式檢查、型別檢查、測試、Migration 檢查與映像建置                                        |
+| 可觀測性       | OpenTelemetry、Sentry、結構化 JSON Log                       | 追蹤 API、背景工作與前端錯誤，並保留跨服務 Trace ID                                           |
 
 ### 前端策略
 
@@ -187,23 +192,28 @@ Next.js 只負責 Web／PWA 與必要的前端伺服器渲染，不承擔核心�
 
 ### 地圖架構
 
-MVP 採「後端可視範圍查詢＋前端群聚」：
+地圖採「後端可視範圍查詢＋前端渲染」；Stage 2 先顯示單店，Stage 3 加入搜尋、篩選與前端群聚：
 
 ```text
 取得目前位置 / 上次位置 / 預設城市
                   ↓
 顯示地圖與已載入結果。前端使用 MapLibre GL JS 渲染，Stage 1 先使用不需 API Key 的 OpenFreeMap；後續可替換圖磚供應商。
                   ↓
+搜尋列：地區／地址或已發布店家名稱
+                  ↓
+篩選面板：縣市／行政區、價格、料理分類
+                  ↓
 使用者拖曳或縮放地圖
                   ↓
 顯示「搜尋此區域」按鈕
                   ↓
 GET /api/v1/map/restaurants
-  bounds + cuisine + price
+  bounds + city + district + cuisine + price
                   ↓
 PostGIS 查詢範圍內 published 店家
                   ↓
-MapLibre GeoJSON source 依縮放層級群聚
+Stage 2：MapLibre DOM Marker 顯示單店
+Stage 3：GeoJSON source 依縮放層級群聚
                   ↓
 群聚標記 ──點擊──> 自動放大並拆群
 單店標記 ──點擊──> 底部預覽卡 ──> 餐廳詳細頁
@@ -212,9 +222,11 @@ MapLibre GeoJSON source 依縮放層級群聚
 - 地圖 API 接收目前可視範圍 `west/south/east/north`、縮放層級、料理分類及價格條件。
 - 只有 `published` 店家可以由公開地圖 API 回傳；管理狀態不得依賴前端過濾。
 - 餐廳位置使用 PostGIS `geography(Point, 4326)`，並建立 GiST 空間索引。
-- MVP 由 API 回傳範圍內的店家點位，瀏覽器使用 MapLibre GeoJSON source clustering 計算畫面群聚。
+- Stage 2 由 API 回傳範圍內的店家點位，瀏覽器以 MapLibre DOM Marker 顯示單店；Stage 3 加入地區／地址與店家名稱搜尋、篩選面板，再改用 GeoJSON source clustering 計算畫面群聚。
+- 地圖搜尋 API 將 Geocoding Provider 的地區結果與 BiteMap `published` 店家結果分組回傳；外部地理編碼不會直接寫入店家資料。
+- 篩選面板預設收起，套用後顯示條件標籤；只有點擊「搜尋此區域」才依最新 bounds 與條件查詢。
 - 群聚數量在 100 家以下顯示精確值，超過 100 家只改變顯示文字為 `100+`，不可修改實際群聚數量。
-- 點擊群聚使用群聚邊界自動放大；放大至單店後，使用 Advanced Marker 顯示店家。
+- Stage 3 點擊群聚時使用群聚邊界自動放大；放大至單店後，使用 MapLibre 自訂 DOM Marker 顯示店家。
 - 單店標記顏色由管理員設定的主要料理分類決定。料理分類需有固定色票，並搭配圖例、圖示或文字，符合無障礙辨識需求。
 - 點擊單店標記只開啟底部預覽卡，不立即導頁。預覽卡再連至既有餐廳詳細頁。
 - 地圖移動後只標示查詢範圍已改變；直到使用者點擊「搜尋此區域」才送出新請求，避免拖曳時頻繁查詢。
