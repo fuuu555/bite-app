@@ -1,4 +1,4 @@
-"""Stage 1 restaurant administration schema / Stage 1 店家管理資料結構。"""
+"""Restaurant administration schema / 店家管理資料結構。"""
 
 from collections.abc import Sequence
 

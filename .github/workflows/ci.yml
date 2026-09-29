@@ -13,8 +13,8 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://bitemap:bitemap_ci@127.0.0.1:5433/bitemap
       API_CORS_ORIGINS: http://127.0.0.1:3000
       RUN_DATABASE_TESTS: "1"
-      E2E_ADMIN_EMAIL: stage1-e2e@example.test
-      E2E_ADMIN_PASSWORD: stage1-e2e-password
+      E2E_ADMIN_EMAIL: admin-e2e@example.test
+      E2E_ADMIN_PASSWORD: admin-e2e-password
     services:
       postgis:
         image: postgis/postgis:17-3.5
@@ -70,8 +70,8 @@ jobs:
       - name: Format check / 格式檢查
         run: pnpm format:check
 
-      - name: Stage 1 quality checks / Stage 1 品質檢查
-        run: pnpm check:stage1
+      - name: Project quality checks / 專案品質檢查
+        run: pnpm check:quality
 
       - name: Install Playwright browser / 安裝 Playwright 瀏覽器
         run: pnpm exec playwright install --with-deps chromium

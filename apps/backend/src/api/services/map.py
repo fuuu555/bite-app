@@ -35,7 +35,10 @@ async def query_public_restaurants(
     )
     statement: Select[tuple[Restaurant]] = (
         select(Restaurant)
-        .options(selectinload(Restaurant.primary_cuisine))
+        .options(
+            selectinload(Restaurant.primary_cuisine),
+            selectinload(Restaurant.photos),
+        )
         .where(
             Restaurant.status == "published",
             Restaurant.location.is_not(None),
@@ -57,12 +60,14 @@ async def query_public_restaurants(
 
     restaurants = list((await session.execute(statement)).scalars())
     if len(restaurants) > result_limit:
-        return [], True
+        return [
+            _restaurant_response(restaurant)
+            for restaurant in restaurants[:result_limit]
+            if _is_map_ready(restaurant)
+        ], True
 
     return [
-        _restaurant_response(restaurant)
-        for restaurant in restaurants
-        if _is_map_ready(restaurant)
+        _restaurant_response(restaurant) for restaurant in restaurants if _is_map_ready(restaurant)
     ], False
 
 
@@ -112,6 +117,7 @@ def _restaurant_response(restaurant: Restaurant) -> MapRestaurantResponse:
         ),
         price_range=restaurant.price_range,  # type: ignore[arg-type]
         menu_url=restaurant.menu_url,
+        photo_url=restaurant.photos[0].url if restaurant.photos else None,
     )
 
 
@@ -125,7 +131,10 @@ async def query_public_restaurant_search(
     term = query.strip().lower()
     statement: Select[tuple[Restaurant]] = (
         select(Restaurant)
-        .options(selectinload(Restaurant.primary_cuisine))
+        .options(
+            selectinload(Restaurant.primary_cuisine),
+            selectinload(Restaurant.photos),
+        )
         .where(
             Restaurant.status == "published",
             Restaurant.location.is_not(None),

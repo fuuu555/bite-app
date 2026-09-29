@@ -1,4 +1,4 @@
-"""Stage 1 administration integration tests / Stage 1 管理 API 整合測試。"""
+"""Administration integration tests / 管理 API 整合測試。"""
 
 from __future__ import annotations
 
@@ -29,8 +29,8 @@ async def test_admin_restaurant_publish_flow_and_postgis_round_trip() -> None:
     未授權呼叫會被拒絕，發布時也會檢查完整地圖資料。
     """
     unique = uuid.uuid4().hex
-    email = f"stage1-{unique}@example.test"
-    password = "stage1-test-password"
+    email = f"admin-{unique}@example.test"
+    password = "admin-test-password"
     user_id: uuid.UUID | None = None
     cuisine_id: uuid.UUID | None = None
     restaurant_id: uuid.UUID | None = None
@@ -87,7 +87,7 @@ async def test_admin_restaurant_publish_flow_and_postgis_round_trip() -> None:
 
             created = await client.post(
                 "/api/v1/admin/restaurants",
-                json={"name": "Stage 1 測試店", "address": "台北市測試路 1 號"},
+                json={"name": "管理測試店", "address": "台北市測試路 1 號"},
             )
             assert created.status_code == 201
             restaurant_id = uuid.UUID(created.json()["id"])
@@ -106,13 +106,13 @@ async def test_admin_restaurant_publish_flow_and_postgis_round_trip() -> None:
                 json={
                     "primary_cuisine_id": str(cuisine_id),
                     "price_range": "200_to_400",
-                    "menu_url": "https://example.test/menu/stage1",
+                    "menu_url": "https://example.test/menu/admin-test",
                     "latitude": 25.0478,
                     "longitude": 121.5319,
                 },
             )
             assert updated.status_code == 200
-            assert updated.json()["menu_url"] == "https://example.test/menu/stage1"
+            assert updated.json()["menu_url"] == "https://example.test/menu/admin-test"
 
             published = await client.post(f"/api/v1/admin/restaurants/{restaurant_id}/publish")
             assert published.status_code == 200

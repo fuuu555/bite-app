@@ -9,6 +9,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from api.core.config import get_settings
 from api.core.database import check_database
 from api.routers.admin import router as admin_router
+from api.routers.auth import router as auth_router
+from api.routers.explore import router as explore_router
 from api.routers.public_map import router as public_map_router
 
 logger = logging.getLogger(__name__)
@@ -23,7 +25,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(admin_router)
+app.include_router(auth_router)
 app.include_router(public_map_router)
+app.include_router(explore_router)
 
 
 @app.get("/health/live", tags=["health"])

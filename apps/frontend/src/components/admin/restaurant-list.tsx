@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-import { Icon } from "@/components/icons";
+import { Icon } from "@/components/admin/icons";
 import { Restaurant, adminApi, priceRangeLabels } from "@/lib/admin-api";
 
 const statusLabels = { draft: "草稿", published: "已發布", archived: "已封存" };

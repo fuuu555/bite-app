@@ -1,4 +1,4 @@
-/** Stage 1 administrator API client / Stage 1 管理 API Client。 */
+/** Administrator API client / 管理員 API Client。 */
 
 export type Cuisine = {
   id: string;
@@ -25,6 +25,25 @@ export type Restaurant = {
   longitude: number | null;
   created_at: string;
   updated_at: string;
+};
+
+export type RestaurantMenu = {
+  id: string;
+  restaurant_id: string;
+  title: string;
+  url: string;
+  last_updated_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RestaurantPhoto = {
+  id: string;
+  restaurant_id: string;
+  url: string;
+  alt_text: string | null;
+  sort_order: number;
+  created_at: string;
 };
 
 export class AdminApiError extends Error {

@@ -1,4 +1,4 @@
-"""Stage 1 persistence models / Stage 1 資料庫模型。"""
+"""Application persistence models / 應用程式資料庫模型。"""
 
 from __future__ import annotations
 
@@ -9,12 +9,14 @@ from geoalchemy2 import Geography
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
+    Column,
     Computed,
     DateTime,
     ForeignKey,
     Index,
     Integer,
     String,
+    Table,
     Text,
     func,
 )
@@ -25,18 +27,115 @@ from api.core.database import Base
 
 
 class User(Base):
-    """Administrator identity / 管理員身分。"""
+    """Shared administrator and user identity / 共用管理員與一般使用者身分。"""
 
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(32), default="admin")
+    email: Mapped[str] = mapped_column(String(320), index=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    role: Mapped[str] = mapped_column(String(32), default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+    profile: Mapped[UserProfile | None] = relationship(
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    identities: Mapped[list[UserIdentity]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
+
+class UserIdentity(Base):
+    """External login identity / 外部登入提供者的身分對照。"""
+
+    __tablename__ = "user_identities"
+    __table_args__ = (
+        CheckConstraint("provider IN ('google')", name="ck_user_identities_provider"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(32))
+    provider_subject: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped[User] = relationship(back_populates="identities")
+
+
+class UserProfile(Base):
+    """User-owned public profile fields / 使用者可管理的公開個人資料。"""
+
+    __tablename__ = "user_profiles"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    display_name: Mapped[str] = mapped_column(String(80))
+    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    user: Mapped[User] = relationship(back_populates="profile")
+    tags: Mapped[list[ProfileTag]] = relationship(
+        secondary="user_profile_tags",
+        back_populates="profiles",
+        order_by="ProfileTag.display_name",
+    )
+
+
+class ProfileTag(Base):
+    """Reusable system or user-created food interest tag / 可重用的美食興趣標籤。"""
+
+    __tablename__ = "profile_tags"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(40))
+    is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    profiles: Mapped[list[UserProfile]] = relationship(
+        secondary="user_profile_tags",
+        back_populates="tags",
+    )
+
+
+user_profile_tags = Table(
+    "user_profile_tags",
+    Base.metadata,
+    Column(
+        "user_id",
+        UUID(as_uuid=True),
+        ForeignKey("user_profiles.user_id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "tag_id",
+        UUID(as_uuid=True),
+        ForeignKey("profile_tags.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
 
 
 class AdminSession(Base):
@@ -50,6 +149,26 @@ class AdminSession(Base):
     )
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    user: Mapped[User] = relationship()
+
+
+class UserSession(Base):
+    """Revocable general-user session / 可撤銷的一般使用者 Session。"""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    device_label: Mapped[str] = mapped_column(String(160), default="瀏覽器")
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -134,6 +253,57 @@ class Restaurant(Base):
     )
 
     primary_cuisine: Mapped[Cuisine | None] = relationship()
+    menus: Mapped[list[RestaurantMenu]] = relationship(
+        back_populates="restaurant",
+        cascade="all, delete-orphan",
+        order_by="RestaurantMenu.created_at",
+    )
+    photos: Mapped[list[RestaurantPhoto]] = relationship(
+        back_populates="restaurant",
+        cascade="all, delete-orphan",
+        order_by="(RestaurantPhoto.sort_order, RestaurantPhoto.created_at)",
+    )
+
+
+class RestaurantMenu(Base):
+    """A manually maintained restaurant menu link / 管理員維護的餐廳菜單連結。"""
+
+    __tablename__ = "restaurant_menus"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    restaurant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(160))
+    url: Mapped[str] = mapped_column(String(1000))
+    last_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    restaurant: Mapped[Restaurant] = relationship(back_populates="menus")
+
+
+class RestaurantPhoto(Base):
+    """A manually maintained restaurant photo link / 管理員維護的餐廳照片連結。"""
+
+    __tablename__ = "restaurant_photos"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    restaurant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), index=True
+    )
+    url: Mapped[str] = mapped_column(String(1000))
+    alt_text: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    restaurant: Mapped[Restaurant] = relationship(back_populates="photos")
 
 
 class AuditLog(Base):

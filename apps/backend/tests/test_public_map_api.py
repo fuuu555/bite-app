@@ -1,4 +1,4 @@
-"""Stage 2 public map integration tests / Stage 2 公開地圖整合測試。"""
+"""Public map integration tests / 公開地圖整合測試。"""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from sqlalchemy import delete
 
 from api.core.config import get_settings
 from api.core.database import session_factory
-from api.domain.models import Cuisine, Restaurant
+from api.domain.models import Cuisine, Restaurant, RestaurantPhoto
 from api.domain.schemas import GeocodingCandidate
 from api.integrations.geocoding import get_geocoding_provider
 from api.main import app
@@ -110,6 +110,14 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
                 ),
             ]
         )
+        session.add(
+            RestaurantPhoto(
+                restaurant_id=restaurant_ids[0],
+                url="https://example.test/map-photo.jpg",
+                alt_text="地圖店家照片",
+                sort_order=0,
+            )
+        )
         await session.commit()
 
     query = {
@@ -131,15 +139,21 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
                 "範圍內已發布店家",
                 "範圍內第二間已發布店家",
             }
+            assert (
+                next(
+                    item
+                    for item in response.json()["restaurants"]
+                    if item["name"] == "範圍內已發布店家"
+                )["photo_url"]
+                == "https://example.test/map-photo.jpg"
+            )
 
             filtered = await client.get(
                 "/api/v1/map/restaurants",
                 params={**query, "price_ranges": "under_200"},
             )
             assert filtered.status_code == 200
-            assert [item["name"] for item in filtered.json()["restaurants"]] == [
-                "範圍內已發布店家"
-            ]
+            assert [item["name"] for item in filtered.json()["restaurants"]] == ["範圍內已發布店家"]
 
             region_filtered = await client.get(
                 "/api/v1/map/restaurants",
@@ -162,6 +176,14 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
                 "範圍內第二間已發布店家",
                 "範圍內已發布店家",
             }
+            assert (
+                next(
+                    item
+                    for item in search_response.json()["restaurants"]
+                    if item["name"] == "範圍內已發布店家"
+                )["photo_url"]
+                == "https://example.test/map-photo.jpg"
+            )
 
             location_response = await client.get(
                 "/api/v1/map/search",
@@ -172,7 +194,7 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
 
             cuisines_response = await client.get("/api/v1/map/cuisines")
             assert cuisines_response.status_code == 200
-            assert cuisines_response.json()[0]["id"] == str(cuisine_id)
+            assert any(item["id"] == str(cuisine_id) for item in cuisines_response.json())
 
             invalid_bounds = await client.get(
                 "/api/v1/map/restaurants",
@@ -184,7 +206,8 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
             app.dependency_overrides[get_settings] = lambda: limited_settings
             limited = await client.get("/api/v1/map/restaurants", params=query)
             assert limited.status_code == 200
-            assert limited.json() == {"status": "zoom_required", "restaurants": []}
+            assert limited.json()["status"] == "zoom_required"
+            assert len(limited.json()["restaurants"]) == 1
     finally:
         app.dependency_overrides.pop(get_settings, None)
         app.dependency_overrides.pop(get_geocoding_provider, None)

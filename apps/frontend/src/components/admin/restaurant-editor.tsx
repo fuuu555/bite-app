@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 
-import { CoordinatePicker } from "@/components/coordinate-picker";
-import { Icon } from "@/components/icons";
+import { CoordinatePicker } from "@/components/admin/coordinate-picker";
+import { Icon } from "@/components/admin/icons";
 import {
   AdminApiError,
   Cuisine,
   PriceRange,
   Restaurant,
+  RestaurantMenu,
+  RestaurantPhoto,
   adminApi,
   priceRangeLabels,
 } from "@/lib/admin-api";
@@ -29,10 +31,20 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
   const router = useRouter();
   const [form, setForm] = useState(emptyForm);
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [menus, setMenus] = useState<RestaurantMenu[]>([]);
+  const [photos, setPhotos] = useState<RestaurantPhoto[]>([]);
+  const [contentLoading, setContentLoading] = useState(false);
+  const [contentSaving, setContentSaving] = useState(false);
+  const [menuDraft, setMenuDraft] = useState({ title: "菜單", url: "" });
+  const [photoDraft, setPhotoDraft] = useState({ url: "", altText: "", sortOrder: "0" });
   const [cuisines, setCuisines] = useState<Cuisine[]>([]);
   const [loading, setLoading] = useState(Boolean(restaurantId));
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [contentNotice, setContentNotice] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const reverseGeocodeRequestRef = useRef(0);
   const reverseGeocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -53,9 +65,20 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
           latitude: item.latitude,
           longitude: item.longitude,
         });
+        setContentLoading(true);
+        return Promise.all([
+          adminApi<RestaurantMenu[]>(`/restaurants/${item.id}/menus`),
+          adminApi<RestaurantPhoto[]>(`/restaurants/${item.id}/photos`),
+        ]).then(([loadedMenus, loadedPhotos]) => {
+          setMenus(loadedMenus);
+          setPhotos(loadedPhotos);
+        });
       })
       .catch(() => setMessage("無法載入店家資料。"))
-      .finally(() => setLoading(false));
+      .finally(() => {
+        setLoading(false);
+        setContentLoading(false);
+      });
   }, [restaurantId]);
 
   function payload() {
@@ -145,6 +168,88 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
       setMessage("店家已解封，現在可以編輯或重新發布。 ");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function addMenu(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!restaurant || !menuDraft.url) return;
+    setContentSaving(true);
+    setContentNotice(null);
+    try {
+      const menu = await adminApi<RestaurantMenu>(`/restaurants/${restaurant.id}/menus`, {
+        method: "POST",
+        body: JSON.stringify({ title: menuDraft.title, url: menuDraft.url }),
+      });
+      setMenus((current) => [...current, menu]);
+      setMenuDraft({ title: "菜單", url: "" });
+      setMessage("菜單連結已新增。 ");
+      setContentNotice({ tone: "success", text: "菜單連結已新增。" });
+    } catch {
+      setMessage("菜單連結新增失敗，請檢查網址。 ");
+      setContentNotice({ tone: "error", text: "菜單連結新增失敗，請檢查網址。" });
+    } finally {
+      setContentSaving(false);
+    }
+  }
+
+  async function removeMenu(menuId: string) {
+    if (!restaurant || !window.confirm("確定要移除這筆菜單連結嗎？")) return;
+    setContentSaving(true);
+    setContentNotice(null);
+    try {
+      await adminApi(`/restaurants/${restaurant.id}/menus/${menuId}`, { method: "DELETE" });
+      setMenus((current) => current.filter((menu) => menu.id !== menuId));
+      setMessage("菜單連結已移除。 ");
+      setContentNotice({ tone: "success", text: "菜單連結已移除。" });
+    } catch {
+      setMessage("菜單連結移除失敗。 ");
+      setContentNotice({ tone: "error", text: "菜單連結移除失敗。" });
+    } finally {
+      setContentSaving(false);
+    }
+  }
+
+  async function addPhoto(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!restaurant || !photoDraft.url) return;
+    setContentSaving(true);
+    setContentNotice(null);
+    try {
+      const photo = await adminApi<RestaurantPhoto>(`/restaurants/${restaurant.id}/photos`, {
+        method: "POST",
+        body: JSON.stringify({
+          url: photoDraft.url,
+          alt_text: photoDraft.altText || null,
+          sort_order: Number(photoDraft.sortOrder) || 0,
+        }),
+      });
+      setPhotos((current) => [...current, photo]);
+      setPhotoDraft({ url: "", altText: "", sortOrder: "0" });
+      setMessage("照片連結已新增。 ");
+      setContentNotice({ tone: "success", text: "照片連結已新增。" });
+    } catch {
+      setMessage("照片連結新增失敗，請檢查網址。 ");
+      setContentNotice({ tone: "error", text: "照片連結新增失敗，請檢查網址。" });
+    } finally {
+      setContentSaving(false);
+    }
+  }
+
+  async function removePhoto(photoId: string) {
+    if (!restaurant || !window.confirm("確定要移除這筆照片連結嗎？")) return;
+    setContentSaving(true);
+    setContentNotice(null);
+    try {
+      await adminApi(`/restaurants/${restaurant.id}/photos/${photoId}`, { method: "DELETE" });
+      setPhotos((current) => current.filter((photo) => photo.id !== photoId));
+      setMessage("照片連結已移除。 ");
+      setContentNotice({ tone: "success", text: "照片連結已移除。" });
+    } catch {
+      setMessage("照片連結移除失敗。 ");
+      setContentNotice({ tone: "error", text: "照片連結移除失敗。" });
+    } finally {
+      setContentSaving(false);
     }
   }
 
@@ -370,6 +475,141 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
           </div>
         </aside>
       </form>
+
+      {restaurant ? (
+        <section className="editor-content-manager" aria-labelledby="restaurant-content-title">
+          {contentNotice ? (
+            <div
+              className={`editor-content-notice is-${contentNotice.tone}`}
+              role={contentNotice.tone === "error" ? "alert" : "status"}
+            >
+              <strong>{contentNotice.tone === "success" ? "已完成" : "處理失敗"}</strong>
+              <span>{contentNotice.text}</span>
+            </div>
+          ) : null}
+          <div className="editor-content-manager__heading">
+            <div>
+              <h2 id="restaurant-content-title">菜單與照片資料</h2>
+              <p>目前只維護外部 URL 與文字 metadata，圖片上傳留待後續階段。</p>
+            </div>
+            {contentLoading ? <span>載入中…</span> : null}
+          </div>
+
+          <div className="editor-content-manager__grid">
+            <section className="editor-content-card" aria-labelledby="restaurant-menus-title">
+              <h3 id="restaurant-menus-title">菜單連結</h3>
+              <form onSubmit={addMenu} className="content-entry-form">
+                <input
+                  aria-label="菜單標題"
+                  value={menuDraft.title}
+                  onChange={(event) => setMenuDraft({ ...menuDraft, title: event.target.value })}
+                  placeholder="菜單標題"
+                  required
+                />
+                <input
+                  aria-label="菜單網址"
+                  type="url"
+                  value={menuDraft.url}
+                  onChange={(event) => setMenuDraft({ ...menuDraft, url: event.target.value })}
+                  placeholder="https://example.com/menu"
+                  required
+                />
+                <button type="submit" className="button button--secondary" disabled={contentSaving}>
+                  新增菜單
+                </button>
+              </form>
+              {menus.length > 0 ? (
+                <ul className="content-entry-list">
+                  {menus.map((menu) => (
+                    <li key={menu.id}>
+                      <a href={menu.url} target="_blank" rel="noreferrer">
+                        {menu.title}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => removeMenu(menu.id)}
+                        disabled={contentSaving}
+                      >
+                        移除
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="field-hint">尚未建立結構化菜單連結。</p>
+              )}
+            </section>
+
+            <section className="editor-content-card" aria-labelledby="restaurant-photos-title">
+              <h3 id="restaurant-photos-title">照片連結</h3>
+              <form onSubmit={addPhoto} className="content-entry-form">
+                <label className="content-entry-field">
+                  <span>照片網址</span>
+                  <input
+                    aria-label="照片網址"
+                    type="url"
+                    value={photoDraft.url}
+                    onChange={(event) => setPhotoDraft({ ...photoDraft, url: event.target.value })}
+                    placeholder="https://example.com/photo.jpg"
+                    required
+                  />
+                </label>
+                <label className="content-entry-field">
+                  <span>
+                    照片說明 <small>可選</small>
+                  </span>
+                  <input
+                    aria-label="照片說明"
+                    value={photoDraft.altText}
+                    onChange={(event) =>
+                      setPhotoDraft({ ...photoDraft, altText: event.target.value })
+                    }
+                    placeholder="例如：店面外觀"
+                  />
+                </label>
+                <label className="content-entry-field">
+                  <span>
+                    顯示順序 <small>數字越小越前面</small>
+                  </span>
+                  <input
+                    aria-label="照片顯示順序"
+                    type="number"
+                    min="0"
+                    max="1000"
+                    value={photoDraft.sortOrder}
+                    onChange={(event) =>
+                      setPhotoDraft({ ...photoDraft, sortOrder: event.target.value })
+                    }
+                  />
+                </label>
+                <button type="submit" className="button button--secondary" disabled={contentSaving}>
+                  新增照片
+                </button>
+              </form>
+              {photos.length > 0 ? (
+                <ul className="content-entry-list">
+                  {photos.map((photo) => (
+                    <li key={photo.id}>
+                      <a href={photo.url} target="_blank" rel="noreferrer">
+                        {photo.alt_text || photo.url}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(photo.id)}
+                        disabled={contentSaving}
+                      >
+                        移除
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="field-hint">尚未建立照片 metadata。</p>
+              )}
+            </section>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }

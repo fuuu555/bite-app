@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { Icon } from "@/components/icons";
+import { Icon } from "@/components/admin/icons";
 import { AdminApiError, adminApi } from "@/lib/admin-api";
 
 type AdminUser = { id: string; email: string; role: string };

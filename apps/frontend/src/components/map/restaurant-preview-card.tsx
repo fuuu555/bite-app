@@ -19,6 +19,12 @@ export function RestaurantPreviewCard({ restaurant, onClose }: RestaurantPreview
       >
         <IconX aria-hidden="true" />
       </button>
+      {restaurant.photo_url ? (
+        <div className="restaurant-preview__photo">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={restaurant.photo_url} alt={`${restaurant.name}店家照片`} />
+        </div>
+      ) : null}
       <div
         className="restaurant-preview__cuisine"
         style={{ "--cuisine-color": restaurant.primary_cuisine.color } as React.CSSProperties}

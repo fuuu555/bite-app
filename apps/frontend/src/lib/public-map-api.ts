@@ -23,6 +23,7 @@ export type MapRestaurant = {
   primary_cuisine: MapCuisine;
   price_range: PriceRange;
   menu_url: string | null;
+  photo_url: string | null;
 };
 
 export type MapRestaurantsResponse = {

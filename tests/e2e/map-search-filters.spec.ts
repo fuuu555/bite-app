@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { mockSignedInUser } from "./user-session";
+
 const cuisineId = "99f98e31-1bd4-4149-9822-d66139d16482";
 
 const restaurant = {
@@ -52,6 +54,7 @@ async function mockMapApis(page: Page, mapRequests: string[]) {
 }
 
 test("map search separates locations and published restaurants", async ({ page }) => {
+  await mockSignedInUser(page);
   const mapRequests: string[] = [];
   await mockMapApis(page, mapRequests);
 
@@ -64,8 +67,8 @@ test("map search separates locations and published restaurants", async ({ page }
   await expect.poll(() => mapRequests.length).toBe(1);
 
   await page.getByRole("option", { name: /中原大學/ }).click();
-  await expect(page.getByRole("button", { name: "搜尋此區域" })).toBeVisible();
-  await expect.poll(() => mapRequests.length).toBe(1);
+  await expect(page.getByRole("button", { name: "搜尋此區域" })).toHaveCount(0);
+  await expect.poll(() => mapRequests.length).toBeGreaterThanOrEqual(2);
 
   await searchbox.fill("公開");
   await expect(page.getByRole("option", { name: /公開地圖驗收店家/ })).toBeVisible({
@@ -76,9 +79,8 @@ test("map search separates locations and published restaurants", async ({ page }
   await expect(page.getByText("台灣料理")).toBeVisible();
 });
 
-test("map filters wait for explicit area search and serialize active conditions", async ({
-  page,
-}) => {
+test("map filters auto-refresh and serialize active conditions", async ({ page }) => {
+  await mockSignedInUser(page);
   const mapRequests: string[] = [];
   await mockMapApis(page, mapRequests);
 
@@ -105,9 +107,6 @@ test("map filters wait for explicit area search and serialize active conditions"
   await expect(
     activeFilters.getByRole("button", { name: "移除條件 桃園市・中壢區" }),
   ).toBeVisible();
-  await expect.poll(() => mapRequests.length).toBe(1);
-
-  await page.getByRole("button", { name: "搜尋此區域" }).click();
   await expect.poll(() => mapRequests.length).toBe(2);
   const params = new URL(mapRequests[1]).searchParams;
   expect(params.get("city")).toBe("桃園市");
@@ -117,6 +116,7 @@ test("map filters wait for explicit area search and serialize active conditions"
 });
 
 test("cluster demo groups ten Zhongyuan restaurants into a numbered marker", async ({ page }) => {
+  await mockSignedInUser(page);
   await page.goto("/map?cluster-demo=1");
 
   const cluster = page.locator(".public-map-cluster");

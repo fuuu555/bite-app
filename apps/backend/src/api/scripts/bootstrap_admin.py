@@ -15,7 +15,9 @@ from api.domain.models import User
 async def create_admin(email: str, password: str) -> None:
     normalized_email = email.strip().lower()
     async with session_factory() as session:
-        result = await session.execute(select(User).where(User.email == normalized_email))
+        result = await session.execute(
+            select(User).where(User.email == normalized_email, User.role == "admin")
+        )
         user = result.scalar_one_or_none()
         if user is None:
             session.add(

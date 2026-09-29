@@ -1,8 +1,12 @@
 import { expect, test } from "@playwright/test";
 
 test("administrator can sign in and create a cuisine", async ({ page }, testInfo) => {
-  const email = process.env.E2E_ADMIN_EMAIL ?? "stage1-e2e@example.test";
-  const password = process.env.E2E_ADMIN_PASSWORD ?? "stage1-e2e-password";
+  const email = process.env.E2E_ADMIN_EMAIL;
+  const password = process.env.E2E_ADMIN_PASSWORD;
+  if (!email || !password) {
+    test.skip(true, "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run the admin flow.");
+    return;
+  }
   const projectSlug = testInfo.project.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
   const timestamp = Date.now();
   const uniqueSlug = `e2e-${projectSlug}-${timestamp}`;

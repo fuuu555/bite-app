@@ -1,4 +1,4 @@
-"""Stage 1 domain services / Stage 1 領域服務。"""
+"""Restaurant administration services / 餐廳管理領域服務。"""
 
 from __future__ import annotations
 

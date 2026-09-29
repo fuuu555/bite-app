@@ -1,12 +1,22 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { UserFooterNav } from "@/components/user-footer-nav";
+import { UserAppGate } from "@/components/user/user-app-gate";
+import { UserFooterNav } from "@/components/user/user-footer-nav";
 
-export default function UserLayout({ children }: { children: ReactNode }) {
+export default async function UserLayout({ children }: { children: ReactNode }) {
+  const cookieStore = await cookies();
+  if (!cookieStore.get("bitemap_user_session")) {
+    redirect("/login");
+  }
+
   return (
     <div className="user-app-shell">
-      <div className="user-app-content">{children}</div>
-      <UserFooterNav />
+      <UserAppGate>
+        <div className="user-app-content">{children}</div>
+        <UserFooterNav />
+      </UserAppGate>
     </div>
   );
 }

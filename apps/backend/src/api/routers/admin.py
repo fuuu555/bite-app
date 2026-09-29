@@ -1,4 +1,4 @@
-"""Administrator-only Stage 1 endpoints / 僅限管理員的 Stage 1 端點。"""
+"""Administrator-only endpoints / 僅限管理員使用的端點。"""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from api.core.security import (
     set_admin_session_cookie,
     verify_password,
 )
-from api.domain.models import Cuisine, Restaurant, User
+from api.domain.models import Cuisine, Restaurant, RestaurantMenu, RestaurantPhoto, User
 from api.domain.schemas import (
     AdminLoginRequest,
     AdminUserResponse,
@@ -30,6 +30,12 @@ from api.domain.schemas import (
     GeocodeRequest,
     GeocodeResponse,
     RestaurantCreate,
+    RestaurantMenuCreate,
+    RestaurantMenuResponse,
+    RestaurantMenuUpdate,
+    RestaurantPhotoCreate,
+    RestaurantPhotoResponse,
+    RestaurantPhotoUpdate,
     RestaurantResponse,
     RestaurantUpdate,
     ReverseGeocodeRequest,
@@ -41,6 +47,16 @@ from api.services.admin import (
     get_restaurant,
     restaurant_response,
     update_restaurant,
+)
+from api.services.restaurant_content import (
+    create_menu,
+    create_photo,
+    delete_menu,
+    delete_photo,
+    list_menus,
+    list_photos,
+    update_menu,
+    update_photo,
 )
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -56,7 +72,9 @@ async def login(
     response: Response,
     session: SessionDep,
 ) -> AdminUserResponse:
-    result = await session.execute(select(User).where(User.email == payload.email))
+    result = await session.execute(
+        select(User).where(User.email == payload.email, User.role == "admin")
+    )
     user = result.scalar_one_or_none()
     if (
         user is None
@@ -212,9 +230,7 @@ async def restore_restaurant(
 ) -> RestaurantResponse:
     """Restore an archived restaurant to an editable draft / 將封存店家解封為草稿。"""
     restaurant = await get_restaurant(session, restaurant_id)
-    return restaurant_response(
-        await change_restaurant_status(session, admin, restaurant, "draft")
-    )
+    return restaurant_response(await change_restaurant_status(session, admin, restaurant, "draft"))
 
 
 @router.delete("/restaurants/{restaurant_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -228,6 +244,112 @@ async def delete_restaurant(
     if result.rowcount == 0:  # type: ignore[attr-defined]
         raise HTTPException(status_code=404, detail="restaurant not found")
     await session.commit()
+
+
+@router.get(
+    "/restaurants/{restaurant_id}/menus",
+    response_model=list[RestaurantMenuResponse],
+)
+async def list_restaurant_menus(
+    restaurant_id: uuid.UUID,
+    _: AdminDep,
+    session: SessionDep,
+) -> list[RestaurantMenu]:
+    return await list_menus(session, restaurant_id)
+
+
+@router.post(
+    "/restaurants/{restaurant_id}/menus",
+    response_model=RestaurantMenuResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_restaurant_menu(
+    restaurant_id: uuid.UUID,
+    payload: RestaurantMenuCreate,
+    _: AdminDep,
+    session: SessionDep,
+) -> RestaurantMenu:
+    return await create_menu(session, restaurant_id, payload)
+
+
+@router.patch(
+    "/restaurants/{restaurant_id}/menus/{menu_id}",
+    response_model=RestaurantMenuResponse,
+)
+async def patch_restaurant_menu(
+    restaurant_id: uuid.UUID,
+    menu_id: uuid.UUID,
+    payload: RestaurantMenuUpdate,
+    _: AdminDep,
+    session: SessionDep,
+) -> RestaurantMenu:
+    return await update_menu(session, restaurant_id, menu_id, payload)
+
+
+@router.delete(
+    "/restaurants/{restaurant_id}/menus/{menu_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_restaurant_menu(
+    restaurant_id: uuid.UUID,
+    menu_id: uuid.UUID,
+    _: AdminDep,
+    session: SessionDep,
+) -> None:
+    await delete_menu(session, restaurant_id, menu_id)
+
+
+@router.get(
+    "/restaurants/{restaurant_id}/photos",
+    response_model=list[RestaurantPhotoResponse],
+)
+async def list_restaurant_photos(
+    restaurant_id: uuid.UUID,
+    _: AdminDep,
+    session: SessionDep,
+) -> list[RestaurantPhoto]:
+    return await list_photos(session, restaurant_id)
+
+
+@router.post(
+    "/restaurants/{restaurant_id}/photos",
+    response_model=RestaurantPhotoResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_restaurant_photo(
+    restaurant_id: uuid.UUID,
+    payload: RestaurantPhotoCreate,
+    _: AdminDep,
+    session: SessionDep,
+) -> RestaurantPhoto:
+    return await create_photo(session, restaurant_id, payload)
+
+
+@router.patch(
+    "/restaurants/{restaurant_id}/photos/{photo_id}",
+    response_model=RestaurantPhotoResponse,
+)
+async def patch_restaurant_photo(
+    restaurant_id: uuid.UUID,
+    photo_id: uuid.UUID,
+    payload: RestaurantPhotoUpdate,
+    _: AdminDep,
+    session: SessionDep,
+) -> RestaurantPhoto:
+    return await update_photo(session, restaurant_id, photo_id, payload)
+
+
+@router.delete(
+    "/restaurants/{restaurant_id}/photos/{photo_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def remove_restaurant_photo(
+    restaurant_id: uuid.UUID,
+    photo_id: uuid.UUID,
+    _: AdminDep,
+    session: SessionDep,
+) -> None:
+    await delete_photo(session, restaurant_id, photo_id)
 
 
 @router.post("/geocode", response_model=GeocodeResponse)

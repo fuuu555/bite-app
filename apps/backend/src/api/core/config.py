@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     api_cors_origins: str = "http://localhost:3000"
     admin_session_cookie: str = "bitemap_admin_session"
     admin_session_hours: int = 8
+    user_session_cookie: str = "bitemap_user_session"
+    user_session_hours: int = 24 * 30
+    frontend_url: str = "http://localhost:3000"
+    google_oauth_client_id: str | None = None
+    google_oauth_client_secret: str | None = None
+    google_oauth_redirect_uri: str = "http://localhost:8000/api/v1/auth/google/callback"
+    google_oauth_authorization_endpoint: str = "https://accounts.google.com/o/oauth2/v2/auth"
+    google_oauth_token_endpoint: str = "https://oauth2.googleapis.com/token"
+    google_oauth_userinfo_endpoint: str = "https://openidconnect.googleapis.com/v1/userinfo"
     public_map_result_limit: int = 250
     geocoding_provider: str = "nominatim"
     geocoding_user_agent: str = "BiteMap/0.1 (local development)"
@@ -37,6 +46,10 @@ class Settings(BaseSettings):
     def secure_cookies(self) -> bool:
         """Only allow plaintext cookies in local development / 僅本機開發允許非 HTTPS Cookie。"""
         return self.app_environment not in {"development", "test"}
+
+    @property
+    def google_oauth_configured(self) -> bool:
+        return bool(self.google_oauth_client_id and self.google_oauth_client_secret)
 
 
 @lru_cache

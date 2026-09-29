@@ -1,6 +1,6 @@
 "use client";
 
-import { IconCurrentLocation, IconRefresh, IconSearch } from "@tabler/icons-react";
+import { IconCurrentLocation, IconRefresh } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from "maplibre-gl";
 
@@ -11,8 +11,8 @@ import {
   cloneMapFilters,
   countMapFilters,
   hasMapFilters,
-} from "@/components/map-search-controls";
-import { RestaurantPreviewCard } from "@/components/restaurant-preview-card";
+} from "@/components/map/map-search-controls";
+import { RestaurantPreviewCard } from "@/components/map/restaurant-preview-card";
 import {
   defaultMapFilters,
   fetchPublicMapCuisines,
@@ -66,6 +66,7 @@ const clusterDemoRestaurants: MapRestaurant[] = clusterDemoOffsets.map(
     primary_cuisine: clusterDemoCuisine,
     price_range: "under_200",
     menu_url: null,
+    photo_url: null,
   }),
 );
 
@@ -213,8 +214,6 @@ export function PublicMapPage() {
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
   const [restaurants, setRestaurants] = useState<MapRestaurant[]>([]);
   const [selectedRestaurant, setSelectedRestaurant] = useState<MapRestaurant | null>(null);
-  const [searchNeeded, setSearchNeeded] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [mapZoom, setMapZoom] = useState(defaultViewport.zoom);
   const [message, setMessage] = useState("正在取得位置…");
   const [messageTone, setMessageTone] = useState<"neutral" | "error">("neutral");
@@ -229,21 +228,23 @@ export function PublicMapPage() {
   const [isLoadingCuisines, setIsLoadingCuisines] = useState(false);
   const [activeFilters, setActiveFilters] = useState<MapFilters>(defaultMapFilters);
   const [pendingFilters, setPendingFilters] = useState<MapFilters>(defaultMapFilters);
+  // The stable search callback reads current filters without rebuilding the MapLibre instance.
+  // 穩定的搜尋 callback 透過 ref 讀取最新篩選，避免重建 MapLibre 實例。
   const activeFiltersRef = useRef(activeFilters);
   activeFiltersRef.current = activeFilters;
 
   const searchMap = useCallback(async (map: MapLibreMap) => {
+    // Only the newest viewport request may update results; failures intentionally keep existing markers.
+    // 只允許最新地圖範圍請求更新結果；失敗時刻意保留原有標記。
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setIsSearching(true);
     setMessageTone("neutral");
     setMessage("正在搜尋這個區域…");
     try {
       if (isClusterDemoEnabled()) {
         setRestaurants(clusterDemoRestaurants);
         setSelectedRestaurant(null);
-        setSearchNeeded(false);
         setMessage("群聚展示模式：中原附近 10 筆測試資料");
         return;
       }
@@ -254,12 +255,13 @@ export function PublicMapPage() {
         controller.signal,
       );
       if (response.status === "zoom_required") {
-        setMessage("這個範圍的店家太多，請放大地圖後再搜尋。");
+        setRestaurants(response.restaurants);
+        setSelectedRestaurant(null);
+        setMessage("範圍較大，先顯示部分店家；放大地圖可查看更完整的群聚。");
         return;
       }
       setRestaurants(response.restaurants);
       setSelectedRestaurant(null);
-      setSearchNeeded(false);
       const center = map.getCenter();
       window.localStorage.setItem(
         viewportStorageKey,
@@ -274,11 +276,8 @@ export function PublicMapPage() {
       );
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
-      setSearchNeeded(true);
       setMessageTone("error");
-      setMessage("店家資料載入失敗，原有結果已保留，請再試一次。");
-    } finally {
-      if (abortRef.current === controller) setIsSearching(false);
+      setMessage("店家資料載入失敗，原有結果已保留；移動地圖後會自動重試。");
     }
   }, []);
 
@@ -324,38 +323,32 @@ export function PublicMapPage() {
 
   useEffect(() => {
     let disposed = false;
+    let moveSearchTimer: number | null = null;
 
     async function initializeMap() {
       if (!containerRef.current) return;
       setMapStatus("loading");
       setMessageTone("neutral");
-      setMessage("正在取得位置…");
+      setMessage("正在準備地圖…");
 
       const savedViewport = readSavedViewport();
       const clusterDemo = isClusterDemoEnabled();
-      let viewport = clusterDemo ? clusterDemoViewport : (savedViewport ?? defaultViewport);
+      const viewport = clusterDemo ? clusterDemoViewport : (savedViewport ?? defaultViewport);
+      const locationPromise = clusterDemo
+        ? Promise.resolve<GeolocationPosition | null>(null)
+        : locateUser().catch(() => null);
+
       if (clusterDemo) {
         setMessage("群聚展示模式：中原附近 10 筆測試資料");
-      } else {
-        try {
-          const position = await locateUser();
-          viewport = {
-            longitude: position.coords.longitude,
-            latitude: position.coords.latitude,
-            zoom: 14,
-          };
-          setMessage("已使用目前位置");
-        } catch {
-          setMessage(
-            savedViewport ? "定位未開啟，已回到上次瀏覽位置。" : "定位未開啟，已顯示桃園中壢。",
-          );
-        }
       }
 
       const maplibregl = await import("maplibre-gl");
       if (disposed || !containerRef.current) return;
       maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
       maplibreRef.current = maplibregl;
+      let mapReady = false;
+      let userMoved = false;
+      let pendingPosition: GeolocationPosition | null = null;
 
       const map = new maplibregl.Map({
         container: containerRef.current,
@@ -371,12 +364,46 @@ export function PublicMapPage() {
         attributionControl: { compact: true },
       });
       mapRef.current = map;
+      const applyLocation = (position: GeolocationPosition) => {
+        // A late geolocation result must not pull the map away after the user has started navigating.
+        // 定位延遲回傳時，若使用者已操作地圖就不能再把畫面拉回目前位置。
+        if (disposed || !mapReady || userMoved) return;
+        map.easeTo({
+          center: [position.coords.longitude, position.coords.latitude],
+          zoom: 14,
+          duration: 350,
+        });
+        setMessage("已使用目前位置");
+      };
+      void locationPromise.then((position) => {
+        if (disposed) return;
+        if (position) {
+          pendingPosition = position;
+          applyLocation(position);
+          return;
+        }
+        if (!clusterDemo) {
+          setMessage(
+            savedViewport ? "定位未開啟，已回到上次瀏覽位置。" : "定位未開啟，已顯示桃園中壢。",
+          );
+        }
+      });
+      map.on("movestart", () => {
+        if (mapReady) userMoved = true;
+      });
       map.once("load", () => {
         if (disposed) return;
+        mapReady = true;
+        if (pendingPosition) applyLocation(pendingPosition);
         setMapZoom(map.getZoom());
         setMapStatus("ready");
         void searchMap(map);
-        map.on("moveend", () => setSearchNeeded(true));
+        map.on("moveend", () => {
+          if (moveSearchTimer !== null) window.clearTimeout(moveSearchTimer);
+          moveSearchTimer = window.setTimeout(() => {
+            if (!disposed) void searchMap(map);
+          }, 450);
+        });
         map.on("zoom", () => updatePublicMapMarkerSizes(map));
         map.on("zoomend", () => setMapZoom(map.getZoom()));
       });
@@ -396,7 +423,10 @@ export function PublicMapPage() {
 
     void initializeMap();
     return () => {
+      // MapLibre owns DOM nodes and listeners outside React, so dispose every imperative resource.
+      // MapLibre 在 React 外管理 DOM 與事件，因此卸載時需完整釋放命令式資源。
       disposed = true;
+      if (moveSearchTimer !== null) window.clearTimeout(moveSearchTimer);
       abortRef.current?.abort();
       markersRef.current.forEach((marker) => marker.remove());
       markersRef.current = [];
@@ -411,6 +441,8 @@ export function PublicMapPage() {
     const maplibregl = maplibreRef.current;
     if (!map || !maplibregl || mapStatus !== "ready") return;
 
+    // Rebuild imperative markers from React state to keep selection and clustering synchronized.
+    // 依 React 狀態重建命令式標記，讓選取狀態與群聚結果保持同步。
     markersRef.current.forEach((marker) => marker.remove());
     const markerItems = clusterRestaurants(map, restaurants, mapZoom, isClusterDemoEnabled());
     markersRef.current = markerItems.map((item) => {
@@ -434,6 +466,9 @@ export function PublicMapPage() {
       } else {
         const markerLabel = document.createElement("span");
         markerElement.className = "public-map-marker";
+        if (selectedRestaurant?.id === item.restaurant.id) {
+          markerElement.classList.add("public-map-marker--focused");
+        }
         markerElement.style.setProperty("--marker-color", item.restaurant.primary_cuisine.color);
         markerLabel.textContent = item.restaurant.primary_cuisine.display_name.slice(0, 1);
         markerElement.append(markerLabel);
@@ -451,7 +486,7 @@ export function PublicMapPage() {
         .setLngLat([item.longitude, item.latitude])
         .addTo(map);
     });
-  }, [mapStatus, mapZoom, restaurants]);
+  }, [mapStatus, mapZoom, restaurants, selectedRestaurant]);
 
   async function returnToCurrentLocation() {
     const map = mapRef.current;
@@ -465,7 +500,7 @@ export function PublicMapPage() {
         zoom: Math.max(map.getZoom(), 14),
         duration: 500,
       });
-      setMessage("位置已更新，請搜尋此區域。");
+      setMessage("位置已更新，正在更新店家。");
     } catch {
       setMessageTone("error");
       setMessage("無法取得目前位置，請確認瀏覽器定位權限。");
@@ -495,18 +530,23 @@ export function PublicMapPage() {
       zoom: Math.max(map.getZoom(), 14),
       duration: 500,
     });
-    setSearchNeeded(true);
-    setMessage("已定位到選取地區，請搜尋此區域。");
+    setMessage("已定位到選取地區，正在更新店家。");
   }
 
   function handleRestaurantSelect(restaurant: MapRestaurant) {
     const map = mapRef.current;
     if (!map) return;
+    setRestaurants((current) => {
+      const existing = current.some((item) => item.id === restaurant.id);
+      return existing ? current : [...current, restaurant];
+    });
     setSearchQuery("");
     setSearchResults(null);
     setSearchError(null);
     setIsFilterOpen(false);
     setSelectedRestaurant(restaurant);
+    setMessageTone("neutral");
+    setMessage("已標示搜尋店家，正在載入周邊店家。");
     map.easeTo({
       center: [restaurant.longitude, restaurant.latitude],
       zoom: Math.max(map.getZoom(), 16),
@@ -530,8 +570,8 @@ export function PublicMapPage() {
     activeFiltersRef.current = nextFilters;
     setPendingFilters(cloneMapFilters(nextFilters));
     setIsFilterOpen(false);
-    setSearchNeeded(true);
-    setMessage("篩選條件已更新，請搜尋此區域。");
+    setMessage("篩選條件已更新，正在重新載入店家。");
+    if (mapRef.current && mapStatus === "ready") void searchMap(mapRef.current);
   }
 
   function removeFilter(key: "city" | "district" | "priceRange" | "cuisine", value?: string) {
@@ -549,8 +589,8 @@ export function PublicMapPage() {
     setActiveFilters(nextFilters);
     activeFiltersRef.current = nextFilters;
     setPendingFilters(cloneMapFilters(nextFilters));
-    setSearchNeeded(true);
-    setMessage("篩選條件已更新，請搜尋此區域。");
+    setMessage("篩選條件已更新，正在重新載入店家。");
+    if (mapRef.current && mapStatus === "ready") void searchMap(mapRef.current);
   }
 
   return (
@@ -592,17 +632,6 @@ export function PublicMapPage() {
           />
         ) : null}
         <MapActiveFilterChips filters={activeFilters} cuisines={cuisines} onRemove={removeFilter} />
-        {searchNeeded && mapStatus === "ready" && !selectedRestaurant && !isClusterDemoEnabled() ? (
-          <button
-            className="map-search-area"
-            type="button"
-            onClick={() => mapRef.current && void searchMap(mapRef.current)}
-            disabled={isSearching}
-          >
-            <IconSearch aria-hidden="true" />
-            {isSearching ? "搜尋中…" : "搜尋此區域"}
-          </button>
-        ) : null}
       </div>
 
       <p

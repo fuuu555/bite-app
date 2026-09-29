@@ -1,4 +1,4 @@
-import { RestaurantEditor } from "@/components/restaurant-editor";
+import { RestaurantEditor } from "@/components/admin/restaurant-editor";
 
 export default async function EditRestaurantPage({
   params,

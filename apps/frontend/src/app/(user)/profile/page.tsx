@@ -1,7 +1,5 @@
-import { ComingSoon } from "@/components/coming-soon";
+import { ProfilePage } from "@/components/user/profile-page";
 
-export default function ProfilePage() {
-  return (
-    <ComingSoon title="個人頁面準備中" description="個人資料、美食紀錄與收藏會在後續階段加入。" />
-  );
+export default function ProfileRoute() {
+  return <ProfilePage />;
 }
