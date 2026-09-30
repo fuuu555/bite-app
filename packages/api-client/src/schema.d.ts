@@ -542,6 +542,113 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/explore/restaurants/{restaurant_id}/reviews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Restaurant Reviews */
+    get: operations["read_restaurant_reviews_api_v1_explore_restaurants__restaurant_id__reviews_get"];
+    put?: never;
+    /** Write Restaurant Review */
+    post: operations["write_restaurant_review_api_v1_explore_restaurants__restaurant_id__reviews_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/explore/restaurants/{restaurant_id}/reviews/{review_id}/timeline": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Review Timeline */
+    get: operations["read_review_timeline_api_v1_explore_restaurants__restaurant_id__reviews__review_id__timeline_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/reviews/{review_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Review */
+    delete: operations["delete_review_api_v1_reviews__review_id__delete"];
+    options?: never;
+    head?: never;
+    /** Edit Review */
+    patch: operations["edit_review_api_v1_reviews__review_id__patch"];
+    trace?: never;
+  };
+  "/api/v1/reviews/{review_id}/like": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Like Review */
+    post: operations["like_review_api_v1_reviews__review_id__like_post"];
+    /** Unlike Review */
+    delete: operations["unlike_review_api_v1_reviews__review_id__like_delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/me/favorites": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read My Favorites */
+    get: operations["read_my_favorites_api_v1_me_favorites_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/restaurants/{restaurant_id}/favorite": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Favorite State */
+    get: operations["read_favorite_state_api_v1_restaurants__restaurant_id__favorite_get"];
+    put?: never;
+    /** Add Favorite */
+    post: operations["add_favorite_api_v1_restaurants__restaurant_id__favorite_post"];
+    /** Remove Favorite */
+    delete: operations["remove_favorite_api_v1_restaurants__restaurant_id__favorite_delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/health/live": {
     parameters: {
       query?: never;
@@ -648,6 +755,12 @@ export interface components {
       revisit_rate?: number | null;
       /** Rating Count */
       rating_count?: number | null;
+      /** Will Return Count */
+      will_return_count?: number | null;
+      /** Neutral Count */
+      neutral_count?: number | null;
+      /** Will Not Return Count */
+      will_not_return_count?: number | null;
       /** Trust Level */
       trust_level?: ("high" | "medium" | "low") | null;
     };
@@ -792,6 +905,48 @@ export interface components {
       top_restaurants: components["schemas"]["ExploreRestaurantSummaryResponse"][];
       /** Restaurants */
       restaurants: components["schemas"]["ExploreRestaurantSummaryResponse"][];
+    };
+    /** FavoriteListResponse */
+    FavoriteListResponse: {
+      /** Restaurants */
+      restaurants: components["schemas"]["FavoriteRestaurantResponse"][];
+      /** Total */
+      total: number;
+    };
+    /**
+     * FavoriteRestaurantResponse
+     * @description Favorite restaurant card contract / 收藏餐廳卡片契約。
+     */
+    FavoriteRestaurantResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /** Address */
+      address: string;
+      primary_cuisine: components["schemas"]["MapCuisineResponse"];
+      /**
+       * Price Range
+       * @enum {string}
+       */
+      price_range: "under_200" | "200_to_400" | "400_to_800" | "over_800";
+      /** Menu Url */
+      menu_url: string | null;
+      /** Photo Url */
+      photo_url?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** FavoriteStateResponse */
+    FavoriteStateResponse: {
+      /** Favorited */
+      favorited: boolean;
     };
     /** GeocodeRequest */
     GeocodeRequest: {
@@ -1133,6 +1288,152 @@ export interface components {
       latitude: number;
       /** Longitude */
       longitude: number;
+    };
+    /**
+     * ReviewCreateRequest
+     * @description Create a review event / 建立一筆留言事件。
+     */
+    ReviewCreateRequest: {
+      /** Content */
+      content: string;
+      /**
+       * Revisit Status
+       * @enum {string}
+       */
+      revisit_status: "will_return" | "neutral" | "will_not_return";
+      /** Reason Ids */
+      reason_ids?: string[];
+    };
+    /** ReviewLikeResponse */
+    ReviewLikeResponse: {
+      /** Liked */
+      liked: boolean;
+      /** Like Count */
+      like_count: number;
+    };
+    /**
+     * ReviewListResponse
+     * @description Paged current review list / 最新留言列表契約。
+     */
+    ReviewListResponse: {
+      /** Reviews */
+      reviews: components["schemas"]["ReviewResponse"][];
+      /** Total */
+      total: number;
+      /**
+       * Sort
+       * @enum {string}
+       */
+      sort: "featured" | "latest" | "popular";
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "all" | "will_return" | "neutral" | "will_not_return";
+      /** Available Reasons */
+      available_reasons: components["schemas"]["ReviewReasonResponse"][];
+      /** Has Current User Review */
+      has_current_user_review: boolean;
+    };
+    /**
+     * ReviewReasonResponse
+     * @description Active review reason metadata / 啟用中的留言原因標籤。
+     */
+    ReviewReasonResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Slug */
+      slug: string;
+      /** Display Name */
+      display_name: string;
+      /**
+       * Polarity
+       * @enum {string}
+       */
+      polarity: "positive" | "negative";
+    };
+    /**
+     * ReviewResponse
+     * @description Public review event contract / 公開留言事件契約。
+     */
+    ReviewResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Thread Id
+       * Format: uuid
+       */
+      thread_id: string;
+      /** Entry Number */
+      entry_number: number;
+      /** Is Revisit */
+      is_revisit: boolean;
+      /**
+       * Author Id
+       * Format: uuid
+       */
+      author_id: string;
+      /** Author Display Name */
+      author_display_name: string;
+      /** Author Avatar Url */
+      author_avatar_url: string | null;
+      /** Content */
+      content: string;
+      /**
+       * Revisit Status
+       * @enum {string}
+       */
+      revisit_status: "will_return" | "neutral" | "will_not_return";
+      /** Reasons */
+      reasons: components["schemas"]["ReviewReasonResponse"][];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+      /** Is Edited */
+      is_edited: boolean;
+      /** Is Deleted */
+      is_deleted: boolean;
+      /** Revisit Count */
+      revisit_count: number;
+      /** Like Count */
+      like_count: number;
+      /** Liked By Me */
+      liked_by_me: boolean;
+      /** Is Owner */
+      is_owner: boolean;
+    };
+    /**
+     * ReviewTimelineResponse
+     * @description One user's visible revisit history / 單一使用者可見的再訪時間線。
+     */
+    ReviewTimelineResponse: {
+      /** Reviews */
+      reviews: components["schemas"]["ReviewResponse"][];
+    };
+    /**
+     * ReviewUpdateRequest
+     * @description Editable review fields / 可編輯的留言欄位。
+     */
+    ReviewUpdateRequest: {
+      /** Content */
+      content?: string | null;
+      /** Revisit Status */
+      revisit_status?: ("will_return" | "neutral" | "will_not_return") | null;
+      /** Reason Ids */
+      reason_ids?: string[] | null;
     };
     /** UserProfileUpdate */
     UserProfileUpdate: {
@@ -2511,6 +2812,376 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["ExploreRestaurantDetailResponse"];
         };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_restaurant_reviews_api_v1_explore_restaurants__restaurant_id__reviews_get: {
+    parameters: {
+      query?: {
+        sort?: "featured" | "latest" | "popular";
+        status?: "all" | "will_return" | "neutral" | "will_not_return";
+      };
+      header?: never;
+      path: {
+        restaurant_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  write_restaurant_review_api_v1_explore_restaurants__restaurant_id__reviews_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        restaurant_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReviewCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_review_timeline_api_v1_explore_restaurants__restaurant_id__reviews__review_id__timeline_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        restaurant_id: string;
+        review_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewTimelineResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_review_api_v1_reviews__review_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        review_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  edit_review_api_v1_reviews__review_id__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        review_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReviewUpdateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  like_review_api_v1_reviews__review_id__like_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        review_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewLikeResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  unlike_review_api_v1_reviews__review_id__like_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        review_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReviewLikeResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_my_favorites_api_v1_me_favorites_get: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FavoriteListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_favorite_state_api_v1_restaurants__restaurant_id__favorite_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        restaurant_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FavoriteStateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_favorite_api_v1_restaurants__restaurant_id__favorite_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        restaurant_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  remove_favorite_api_v1_restaurants__restaurant_id__favorite_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        restaurant_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
       /** @description Validation Error */
       422: {

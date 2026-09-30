@@ -21,4 +21,5 @@
 - 修改資料庫模型時，必須新增可逆的 Alembic migration。
 - 修改 API 後同步產生 OpenAPI client 型別。
 - 完成後至少執行相關的 formatter、lint、typecheck 與測試。
+- 功能完成並驗收後，刪除臨時測試文件、探索性驗證文件與一次性測試產物；正式自動化測試程式、測試設定與必要測試資料保留。
 - 不把 `.env`、密碼、Token 或其他秘密加入 Git。

@@ -303,6 +303,9 @@ class ExploreAppSignalsResponse(BaseModel):
 
     revisit_rate: float | None = None
     rating_count: int | None = None
+    will_return_count: int | None = None
+    neutral_count: int | None = None
+    will_not_return_count: int | None = None
     trust_level: ExploreTrustLevel | None = None
 
 
@@ -370,3 +373,140 @@ class ExploreRestaurantDetailResponse(ExploreRestaurantSummaryResponse):
     menu: ExploreMenuResponse
     menus: list[ExploreMenuDocumentResponse] = Field(default_factory=list)
     photos: list[ExplorePhotoResponse] = Field(default_factory=list)
+
+
+RevisitStatus = Literal["will_return", "neutral", "will_not_return"]
+ReviewSort = Literal["featured", "latest", "popular"]
+ReviewStatusFilter = Literal["all", "will_return", "neutral", "will_not_return"]
+
+
+class ReviewReasonResponse(BaseModel):
+    """Active review reason metadata / 啟用中的留言原因標籤。"""
+
+    id: uuid.UUID
+    slug: str
+    display_name: str
+    polarity: Literal["positive", "negative"]
+
+
+class ReviewCreateRequest(BaseModel):
+    """Create a review event / 建立一筆留言事件。"""
+
+    content: str = Field(min_length=1, max_length=2000)
+    revisit_status: RevisitStatus
+    reason_ids: list[uuid.UUID] = Field(default_factory=list, max_length=5)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def normalize_content(cls, value: str) -> str:
+        if not isinstance(value, str):
+            raise ValueError("content must be a string")
+        normalized = re.sub(r"\s+", " ", value).strip()
+        if not normalized:
+            raise ValueError("content cannot be empty")
+        return normalized
+
+    @field_validator("reason_ids")
+    @classmethod
+    def normalize_reason_ids(cls, value: list[uuid.UUID]) -> list[uuid.UUID]:
+        return list(dict.fromkeys(value))
+
+
+class ReviewUpdateRequest(BaseModel):
+    """Editable review fields / 可編輯的留言欄位。"""
+
+    content: str | None = Field(default=None, min_length=1, max_length=2000)
+    revisit_status: RevisitStatus | None = None
+    reason_ids: list[uuid.UUID] | None = Field(default=None, max_length=5)
+
+    @field_validator("content", mode="before")
+    @classmethod
+    def normalize_content(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("content must be a string")
+        normalized = re.sub(r"\s+", " ", value).strip()
+        if not normalized:
+            raise ValueError("content cannot be empty")
+        return normalized
+
+    @field_validator("reason_ids")
+    @classmethod
+    def normalize_reason_ids(cls, value: list[uuid.UUID] | None) -> list[uuid.UUID] | None:
+        if value is None:
+            return None
+        return list(dict.fromkeys(value))
+
+    @model_validator(mode="after")
+    def require_change(self) -> ReviewUpdateRequest:
+        if not self.model_fields_set:
+            raise ValueError("at least one field must be updated")
+        return self
+
+
+class ReviewResponse(BaseModel):
+    """Public review event contract / 公開留言事件契約。"""
+
+    id: uuid.UUID
+    thread_id: uuid.UUID
+    entry_number: int
+    is_revisit: bool
+    author_id: uuid.UUID
+    author_display_name: str
+    author_avatar_url: str | None
+    content: str
+    revisit_status: RevisitStatus
+    reasons: list[ReviewReasonResponse]
+    created_at: datetime
+    updated_at: datetime
+    is_edited: bool
+    is_deleted: bool
+    revisit_count: int
+    like_count: int
+    liked_by_me: bool
+    is_owner: bool
+
+
+class ReviewListResponse(BaseModel):
+    """Paged current review list / 最新留言列表契約。"""
+
+    reviews: list[ReviewResponse]
+    total: int
+    sort: ReviewSort
+    status: ReviewStatusFilter
+    available_reasons: list[ReviewReasonResponse]
+    has_current_user_review: bool
+
+
+class ReviewTimelineResponse(BaseModel):
+    """One user's visible revisit history / 單一使用者可見的再訪時間線。"""
+
+    reviews: list[ReviewResponse]
+
+
+class ReviewLikeResponse(BaseModel):
+    liked: bool
+    like_count: int
+
+
+class FavoriteRestaurantResponse(BaseModel):
+    """Favorite restaurant card contract / 收藏餐廳卡片契約。"""
+
+    id: uuid.UUID
+    name: str
+    address: str
+    primary_cuisine: MapCuisineResponse
+    price_range: PriceRange
+    menu_url: str | None
+    photo_url: str | None = None
+    created_at: datetime
+
+
+class FavoriteListResponse(BaseModel):
+    restaurants: list[FavoriteRestaurantResponse]
+    total: int
+
+
+class FavoriteStateResponse(BaseModel):
+    favorited: bool

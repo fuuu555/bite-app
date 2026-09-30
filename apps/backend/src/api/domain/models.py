@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -304,6 +305,165 @@ class RestaurantPhoto(Base):
     )
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="photos")
+
+
+class RestaurantReviewThread(Base):
+    """One user's review thread for a restaurant / 一位使用者對一家餐廳的留言串。"""
+
+    __tablename__ = "restaurant_review_threads"
+    __table_args__ = (
+        UniqueConstraint(
+            "restaurant_id",
+            "user_id",
+            name="uq_restaurant_review_threads_restaurant_user",
+        ),
+        Index(
+            "ix_restaurant_review_threads_restaurant_user",
+            "restaurant_id",
+            "user_id",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    restaurant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    entries: Mapped[list[RestaurantReview]] = relationship(
+        back_populates="thread",
+        order_by="RestaurantReview.entry_number",
+    )
+
+
+class RestaurantReview(Base):
+    """One entry in a review thread / 留言串中的一次原始留言或再訪紀錄。"""
+
+    __tablename__ = "restaurant_reviews"
+    __table_args__ = (
+        CheckConstraint(
+            "revisit_status IN ('will_return', 'neutral', 'will_not_return')",
+            name="ck_restaurant_reviews_revisit_status",
+        ),
+        Index("ix_restaurant_reviews_restaurant_created", "restaurant_id", "created_at"),
+        Index(
+            "ix_restaurant_reviews_restaurant_user_created",
+            "restaurant_id",
+            "user_id",
+            "created_at",
+        ),
+        UniqueConstraint(
+            "thread_id",
+            "entry_number",
+            name="uq_restaurant_reviews_thread_entry_number",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    thread_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("restaurant_review_threads.id", ondelete="CASCADE"),
+        index=True,
+    )
+    entry_number: Mapped[int] = mapped_column(Integer)
+    restaurant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    content: Mapped[str] = mapped_column(Text)
+    revisit_status: Mapped[str] = mapped_column(String(24))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    restaurant: Mapped[Restaurant] = relationship()
+    user: Mapped[User] = relationship()
+    thread: Mapped[RestaurantReviewThread] = relationship(back_populates="entries")
+    reasons: Mapped[list[ReviewReason]] = relationship(
+        secondary="restaurant_review_reasons",
+        order_by="ReviewReason.display_name",
+    )
+
+
+class ReviewReason(Base):
+    """Reusable review reason / 可重用的留言原因標籤。"""
+
+    __tablename__ = "review_reasons"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(80))
+    polarity: Mapped[str] = mapped_column(String(16))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+restaurant_review_reasons = Table(
+    "restaurant_review_reasons",
+    Base.metadata,
+    Column(
+        "review_id",
+        UUID(as_uuid=True),
+        ForeignKey("restaurant_reviews.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "reason_id",
+        UUID(as_uuid=True),
+        ForeignKey("review_reasons.id", ondelete="RESTRICT"),
+        primary_key=True,
+    ),
+)
+
+
+class ReviewLike(Base):
+    """One user's like on a review / 使用者對留言的一次按讚關係。"""
+
+    __tablename__ = "review_likes"
+
+    review_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("restaurant_reviews.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class RestaurantFavorite(Base):
+    """One user's restaurant favorite / 使用者與餐廳的一筆收藏關係。"""
+
+    __tablename__ = "restaurant_favorites"
+
+    restaurant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class AuditLog(Base):

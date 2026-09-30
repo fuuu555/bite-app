@@ -31,6 +31,8 @@ import {
   fetchExploreRestaurant,
 } from "@/lib/explore-api";
 import { priceRangeLabels } from "@/lib/public-map-api";
+import { fetchFavoriteState, setFavorite } from "@/lib/reviews-api";
+import { RestaurantReviewsPanel } from "@/components/user/restaurant-reviews-panel";
 
 function RestaurantPhotoLink({
   photo,
@@ -171,6 +173,9 @@ function RestaurantPhotoCarousel({
 
 export function RestaurantDetailPage({ restaurantId }: { restaurantId: string }) {
   const [location, setLocation] = useState<ExploreLocation | null>(null);
+  const [contentVersion, setContentVersion] = useState(0);
+  const [favorited, setFavorited] = useState(false);
+  const [favoriteBusy, setFavoriteBusy] = useState(false);
   const [loadResult, setLoadResult] = useState<{
     restaurantId: string;
     restaurant: ExploreRestaurantDetail | null;
@@ -211,6 +216,18 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
         });
       });
     return () => controller.abort();
+  }, [restaurantId, contentVersion]);
+
+  useEffect(() => {
+    let active = true;
+    fetchFavoriteState(restaurantId)
+      .then((result) => {
+        if (active) setFavorited(result.favorited);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
   }, [restaurantId]);
 
   // Keep stale data hidden during a route transition, even before the effect starts its next request.
@@ -258,6 +275,19 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
   const detailPhotos = coverPhoto
     ? [coverPhoto, ...restaurant.photos.filter((photo) => photo.url !== coverPhoto.url)]
     : restaurant.photos;
+
+  const toggleFavorite = async () => {
+    const nextFavorited = !favorited;
+    setFavorited(nextFavorited);
+    setFavoriteBusy(true);
+    try {
+      await setFavorite(restaurantId, nextFavorited);
+    } catch {
+      setFavorited(!nextFavorited);
+    } finally {
+      setFavoriteBusy(false);
+    }
+  };
 
   return (
     <main className="restaurant-detail-page restaurant-detail-v3">
@@ -321,9 +351,16 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
           </section>
 
           <nav className="restaurant-detail-v3__actions" aria-label="餐廳操作">
-            <button type="button" disabled aria-label="收藏">
+            <button
+              type="button"
+              className={favorited ? "is-primary is-active" : undefined}
+              onClick={() => void toggleFavorite()}
+              disabled={favoriteBusy}
+              aria-pressed={favorited}
+              aria-label={favorited ? "取消收藏" : "收藏"}
+            >
               <IconBookmark aria-hidden="true" />
-              收藏店家
+              {favorited ? "已收藏" : "收藏店家"}
             </button>
             {menuLink ? (
               <a
@@ -352,7 +389,7 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
             </button>
           </nav>
           <p id="future-actions-note" className="restaurant-detail-v3__future-note">
-            互動功能將在後續階段開放
+            約飯與分享將在後續階段開放
           </p>
         </section>
       </article>
@@ -379,7 +416,10 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
                 value={restaurant.app.revisit_rate ?? 0}
                 aria-label={`願意再訪 ${restaurant.app.revisit_rate}%`}
               />
-              <figcaption>目前僅有再訪率資料，完整分布將在後續資料建立後補上。</figcaption>
+              <figcaption>
+                {restaurant.app.will_return_count ?? 0} 會再訪 · {restaurant.app.neutral_count ?? 0}{" "}
+                普通 · {restaurant.app.will_not_return_count ?? 0} 不會
+              </figcaption>
             </figure>
           ) : (
             <section className="restaurant-detail-v3__empty" aria-label="BiteMap 評價空狀態">
@@ -408,6 +448,11 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
           <p>外部評分與 BiteMap 實訪意願分開呈現。</p>
         </aside>
       </section>
+
+      <RestaurantReviewsPanel
+        restaurantId={restaurantId}
+        onReviewsChanged={() => setContentVersion((version) => version + 1)}
+      />
     </main>
   );
 }

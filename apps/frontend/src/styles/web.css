@@ -4385,3 +4385,608 @@ select:hover {
     padding-bottom: 24px;
   }
 }
+
+/* Stage 6 review surface / Stage 6 留言操作區 */
+.restaurant-reviews-panel {
+  display: grid;
+  gap: 22px;
+  margin-top: 26px;
+  padding: clamp(22px, 4vw, 38px);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-control);
+}
+
+.restaurant-reviews-panel__header,
+.restaurant-reviews-panel__toolbar,
+.restaurant-review-card__heading,
+.restaurant-review-card__meta,
+.restaurant-review-card__actions,
+.restaurant-review-form__actions,
+.restaurant-review-delete-confirm,
+.profile-favorites-section .profile-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.restaurant-reviews-panel__header h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 5px 0 0;
+  font-size: clamp(1.4rem, 2.4vw, 2rem);
+  letter-spacing: -0.05em;
+}
+
+.restaurant-reviews-panel__header h2 svg {
+  width: 22px;
+  height: 22px;
+  color: var(--color-action);
+}
+
+.restaurant-reviews-panel__header p:last-child {
+  margin: 8px 0 0;
+  color: var(--color-ink-muted);
+}
+
+.restaurant-detail-v3__kicker {
+  margin: 0;
+  color: var(--color-action-hover);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.restaurant-review-form {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: #fcfbf7;
+}
+
+.restaurant-review-form label,
+.restaurant-review-form legend {
+  color: var(--color-ink);
+  font-size: 0.86rem;
+  font-weight: 760;
+}
+
+.restaurant-review-form textarea {
+  width: 100%;
+  min-height: 116px;
+  resize: vertical;
+  padding: 14px 16px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  line-height: 1.7;
+}
+
+.restaurant-review-form textarea:focus {
+  border-color: var(--color-action);
+  outline: 3px solid color-mix(in srgb, var(--color-action) 16%, transparent);
+}
+
+.restaurant-review-form fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.restaurant-review-form__status-options,
+.restaurant-review-reasons,
+.restaurant-reviews-panel__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.restaurant-review-status-option {
+  position: relative;
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition:
+    background var(--transition-ui),
+    border-color var(--transition-ui),
+    color var(--transition-ui);
+}
+
+.restaurant-review-status-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.restaurant-review-status-option.is-active,
+.restaurant-review-reasons button.is-active,
+.restaurant-reviews-panel__filters button.is-active {
+  border-color: var(--color-action);
+  background: #fff0ea;
+  color: var(--color-action-hover);
+}
+
+.restaurant-review-reasons button,
+.restaurant-reviews-panel__filters button {
+  display: inline-flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 4px;
+  padding: 0 11px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 680;
+  transition:
+    background var(--transition-ui),
+    border-color var(--transition-ui),
+    color var(--transition-ui);
+}
+
+.restaurant-review-reasons button:hover,
+.restaurant-reviews-panel__filters button:hover {
+  border-color: var(--color-hairline);
+  color: var(--color-ink);
+}
+
+.restaurant-review-form__actions {
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+.restaurant-review-form__actions button,
+.restaurant-review-delete-confirm button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.button--ghost {
+  border: 1px solid var(--color-hairline);
+  background: transparent;
+  color: var(--color-ink-muted);
+}
+
+.button--danger {
+  border: 0;
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.button--danger:hover {
+  background: #873535;
+}
+
+.restaurant-reviews-panel__toolbar {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--color-hairline);
+  color: var(--color-ink-muted);
+  font-size: 0.8rem;
+}
+
+.restaurant-reviews-panel__toolbar > label {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.restaurant-reviews-panel__toolbar select {
+  min-height: 34px;
+  padding: 0 28px 0 10px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  appearance: none;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.restaurant-reviews-panel__toolbar label > svg {
+  position: absolute;
+  right: 8px;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.restaurant-reviews-panel__filters {
+  margin-left: auto;
+}
+
+.restaurant-reviews-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+}
+
+.restaurant-reviews-feedback.is-success {
+  background: #edf7ef;
+  color: var(--color-success);
+}
+
+.restaurant-reviews-feedback.is-error {
+  background: #fff1ef;
+  color: var(--color-danger);
+}
+
+.restaurant-reviews-feedback button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.restaurant-reviews-state {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: var(--color-ink-muted);
+  text-align: center;
+}
+
+.restaurant-reviews-state svg {
+  width: 26px;
+  height: 26px;
+  color: var(--color-action);
+}
+
+.restaurant-reviews-state strong {
+  color: var(--color-ink);
+}
+
+.restaurant-reviews-list {
+  display: grid;
+  gap: 12px;
+}
+
+.restaurant-review-card {
+  position: relative;
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.restaurant-review-card.is-editing {
+  background: #fcfbf7;
+}
+
+.restaurant-review-card__author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.restaurant-review-card__author > div {
+  display: grid;
+  gap: 3px;
+}
+
+.restaurant-review-card__author span {
+  color: var(--color-ink-muted);
+  font-size: 0.75rem;
+}
+
+.restaurant-review__avatar {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--color-water);
+}
+
+.restaurant-review__avatar--fallback {
+  display: grid;
+  place-items: center;
+  color: var(--color-ink);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.restaurant-review-status {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.restaurant-review-status.is-will_return {
+  background: #e9f5eb;
+  color: var(--color-success);
+}
+
+.restaurant-review-status.is-neutral {
+  background: #fff4da;
+  color: var(--color-warning);
+}
+
+.restaurant-review-status.is-will_not_return {
+  background: #fff0ed;
+  color: var(--color-danger);
+}
+
+.restaurant-review-card__content {
+  margin: 0;
+  color: var(--color-ink);
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.restaurant-review-card__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.restaurant-review-card__reasons span {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--color-surface-muted);
+  color: var(--color-ink-muted);
+  font-size: 0.7rem;
+}
+
+.restaurant-review-card__meta {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  color: var(--color-ink-muted);
+  font-size: 0.74rem;
+}
+
+.restaurant-review-card__meta button,
+.restaurant-review-card__actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.restaurant-review-card__meta button:hover,
+.restaurant-review-card__actions button:hover {
+  color: var(--color-action-hover);
+}
+
+.restaurant-review-card__meta svg,
+.restaurant-review-card__actions svg,
+.restaurant-review-delete-confirm svg {
+  width: 16px;
+  height: 16px;
+}
+
+.restaurant-review-card__actions {
+  justify-content: flex-start;
+  padding-top: 2px;
+}
+
+.restaurant-review-card__actions button {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+}
+
+.restaurant-review-card__actions button.is-liked {
+  background: #fff0ea;
+  color: var(--color-action-hover);
+}
+
+.restaurant-review-card__actions button.is-danger {
+  color: var(--color-danger);
+}
+
+.restaurant-review-timeline {
+  display: grid;
+  gap: 14px;
+  padding: 15px 0 2px 8px;
+  border-top: 1px dashed var(--color-hairline);
+}
+
+.restaurant-review-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.restaurant-review-timeline__item:not(:last-child)::before {
+  position: absolute;
+  top: 12px;
+  bottom: -17px;
+  left: 5px;
+  width: 1px;
+  background: var(--color-hairline);
+  content: "";
+}
+
+.restaurant-review-timeline__dot {
+  z-index: 1;
+  width: 11px;
+  height: 11px;
+  margin-top: 4px;
+  border: 3px solid var(--color-water);
+  border-radius: 50%;
+  background: var(--color-ink);
+}
+
+.restaurant-review-timeline__item div {
+  display: grid;
+  gap: 4px;
+}
+
+.restaurant-review-timeline__item span,
+.restaurant-review-timeline__item p {
+  color: var(--color-ink-muted);
+  font-size: 0.76rem;
+}
+
+.restaurant-review-timeline__item p {
+  margin: 3px 0 0;
+  color: var(--color-ink);
+  line-height: 1.6;
+}
+
+.restaurant-review-delete-confirm {
+  align-items: flex-end;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: #fff5f1;
+}
+
+.restaurant-review-delete-confirm > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.restaurant-review-delete-confirm span {
+  color: var(--color-ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.restaurant-review-delete-confirm > div:last-child {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
+.restaurant-review-delete-confirm .button {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 0.76rem;
+}
+
+.profile-favorites-section {
+  display: grid;
+  gap: 14px;
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid var(--color-hairline);
+}
+
+.profile-favorites-section .profile-section-title {
+  justify-content: flex-start;
+}
+
+.profile-favorites-section .profile-section-title span {
+  margin-left: auto;
+  color: var(--color-ink-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.profile-favorites-list {
+  display: grid;
+  gap: 8px;
+}
+
+.profile-favorite-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 58px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink);
+  text-decoration: none;
+  transition: background var(--transition-ui);
+}
+
+.profile-favorite-row:hover {
+  background: var(--color-surface-muted);
+}
+
+.profile-favorite-row__marker {
+  width: 8px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+.profile-favorite-row > span:nth-child(2) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.profile-favorite-row small {
+  overflow: hidden;
+  color: var(--color-ink-muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-favorite-row > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--color-ink-muted);
+}
+
+.profile-favorites-empty {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.82rem;
+}
+
+.is-spinning {
+  animation: bitemap-spin 0.9s linear infinite;
+}
+
+@keyframes bitemap-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
+}

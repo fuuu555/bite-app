@@ -4,6 +4,9 @@ import type { MapCuisine } from "@/lib/public-map-api";
 export type ExploreAppSignals = {
   revisit_rate: number | null;
   rating_count: number | null;
+  will_return_count: number | null;
+  neutral_count: number | null;
+  will_not_return_count: number | null;
   trust_level: "high" | "medium" | "low" | null;
 };
 

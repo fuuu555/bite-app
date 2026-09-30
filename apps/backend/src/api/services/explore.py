@@ -25,6 +25,7 @@ from api.domain.schemas import (
     PriceRange,
 )
 from api.services.ranking import RestaurantRanking, stable_restaurant_ranking
+from api.services.reviews import get_restaurant_app_stats
 
 
 async def query_explore_restaurants(
@@ -81,8 +82,13 @@ async def query_explore_restaurants(
         restaurants = [row[0] for row in rows]
         distances = {row[0].id: float(row[1]) for row in rows}
     ranked = ranking.rank(restaurants)
+    app_stats = await get_restaurant_app_stats(session, [item.id for item in restaurants])
     responses = [
-        _summary_response(item, distance_meters=distances.get(item.id))
+        _summary_response(
+            item,
+            distance_meters=distances.get(item.id),
+            app_signals=app_stats.get(item.id),
+        )
         for item in ranked
         if _is_explore_ready(item)
     ]
@@ -125,6 +131,7 @@ async def get_explore_restaurant(
         distance_meters=(
             float(row[1]) if origin is not None and row and row[1] is not None else None
         ),
+        app_signals=(await get_restaurant_app_stats(session, [restaurant.id])).get(restaurant.id),
     )
     return ExploreRestaurantDetailResponse(
         **summary.model_dump(),
@@ -155,6 +162,7 @@ def _summary_response(
     restaurant: Restaurant,
     *,
     distance_meters: float | None = None,
+    app_signals: ExploreAppSignalsResponse | None = None,
 ) -> ExploreRestaurantSummaryResponse:
     cuisine = restaurant.primary_cuisine
     if cuisine is None or restaurant.price_range is None:
@@ -173,7 +181,7 @@ def _summary_response(
         menu_url=restaurant.menu_url,
         photo_url=restaurant.photos[0].url if restaurant.photos else None,
         distance_meters=distance_meters,
-        app=ExploreAppSignalsResponse(),
+        app=app_signals or ExploreAppSignalsResponse(),
         google=ExploreGoogleSignalsResponse(),
     )
 

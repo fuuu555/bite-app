@@ -674,6 +674,69 @@
 }
 
 @media (max-width: 767px) {
+  .restaurant-reviews-panel {
+    gap: 17px;
+    margin-top: 18px;
+    padding: 20px 16px;
+    border-radius: var(--radius-md);
+  }
+
+  .restaurant-reviews-panel__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .restaurant-reviews-panel__header .button {
+    width: 100%;
+  }
+
+  .restaurant-reviews-panel__toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+  }
+
+  .restaurant-reviews-panel__filters {
+    grid-column: 1 / -1;
+    margin-left: 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+  }
+
+  .restaurant-reviews-panel__filters button {
+    flex: 0 0 auto;
+  }
+
+  .restaurant-review-form {
+    padding: 16px;
+  }
+
+  .restaurant-review-card {
+    gap: 13px;
+    padding: 16px;
+  }
+
+  .restaurant-review-card__heading {
+    align-items: flex-start;
+  }
+
+  .restaurant-review-delete-confirm {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .restaurant-review-delete-confirm > div:last-child {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .restaurant-review-delete-confirm .button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 767px) {
   .restaurant-detail-v3__carousel,
   .restaurant-detail-v3__carousel-track,
   .restaurant-detail-v3__carousel-slide {

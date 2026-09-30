@@ -5,7 +5,6 @@ import {
   IconChevronRight,
   IconHeart,
   IconMap2,
-  IconMessageCircle,
   IconSettings,
   IconTag,
   IconUser,
@@ -15,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { MyProfile, UserApiError, userApi } from "@/lib/user-api";
+import { FavoriteRestaurant, fetchMyFavorites, ReviewsApiError } from "@/lib/reviews-api";
 
 function ProfileAvatar({ profile }: { profile: Pick<MyProfile, "avatar_url" | "display_name"> }) {
   return profile.avatar_url ? (
@@ -36,13 +36,20 @@ function ProfileAvatar({ profile }: { profile: Pick<MyProfile, "avatar_url" | "d
 export function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<MyProfile | null>(null);
+  const [favorites, setFavorites] = useState<FavoriteRestaurant[]>([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    userApi<MyProfile>("/me/profile")
-      .then(setProfile)
+    Promise.all([userApi<MyProfile>("/me/profile"), fetchMyFavorites()])
+      .then(([loadedProfile, loadedFavorites]) => {
+        setProfile(loadedProfile);
+        setFavorites(loadedFavorites.restaurants);
+      })
       .catch((caught) => {
-        if (caught instanceof UserApiError && caught.status === 401) {
+        if (
+          (caught instanceof UserApiError || caught instanceof ReviewsApiError) &&
+          caught.status === 401
+        ) {
           router.replace("/login");
           return;
         }
@@ -93,7 +100,7 @@ export function ProfilePage() {
           </div>
           <div className="profile-card__note">
             <IconHeart aria-hidden="true" />
-            <span>你的美食紀錄會在後續階段逐步加入。</span>
+            <span>在餐廳頁留下留言，慢慢建立自己的美食紀錄。</span>
           </div>
         </aside>
 
@@ -127,13 +134,37 @@ export function ProfilePage() {
               <p>個人美食地圖的資料來源尚未定案，先保留這個入口。</p>
             </div>
           </div>
-          <div className="profile-future-links">
-            <span>
-              <IconMessageCircle aria-hidden="true" /> 美食留言功能準備中
-            </span>
-            <span>
-              <IconBookmark aria-hidden="true" /> 收藏列表功能準備中
-            </span>
+          <div className="profile-favorites-section">
+            <div className="profile-section-title">
+              <IconBookmark aria-hidden="true" />
+              <h2>我的收藏</h2>
+              <span>{favorites.length} 間</span>
+            </div>
+            {favorites.length > 0 ? (
+              <div className="profile-favorites-list">
+                {favorites.map((restaurant) => (
+                  <Link
+                    className="profile-favorite-row"
+                    href={`/restaurants/${restaurant.id}`}
+                    key={restaurant.id}
+                  >
+                    <span
+                      className="profile-favorite-row__marker"
+                      style={{ backgroundColor: restaurant.primary_cuisine.color }}
+                    />
+                    <span>
+                      <strong>{restaurant.name}</strong>
+                      <small>
+                        {restaurant.primary_cuisine.display_name} · {restaurant.address}
+                      </small>
+                    </span>
+                    <IconChevronRight aria-hidden="true" />
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="profile-favorites-empty">收藏喜歡的店家，之後可以從這裡快速回來。</p>
+            )}
           </div>
         </section>
       </section>

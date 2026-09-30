@@ -12,6 +12,7 @@ from api.routers.admin import router as admin_router
 from api.routers.auth import router as auth_router
 from api.routers.explore import router as explore_router
 from api.routers.public_map import router as public_map_router
+from api.routers.reviews import router as reviews_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -28,6 +29,7 @@ app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(public_map_router)
 app.include_router(explore_router)
+app.include_router(reviews_router)
 
 
 @app.get("/health/live", tags=["health"])
