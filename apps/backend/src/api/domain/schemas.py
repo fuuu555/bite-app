@@ -29,6 +29,32 @@ class AdminUserResponse(BaseModel):
     role: str
 
 
+class AvatarAssetResponse(BaseModel):
+    """Selectable avatar metadata / 可選頭貼中繼資料。"""
+
+    id: uuid.UUID
+    display_name: str
+    url: str
+    mime_type: str
+    file_size: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class AvatarAssetUpdate(BaseModel):
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    is_active: bool | None = None
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def normalize_avatar_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = re.sub(r"\s+", " ", value).strip()
+        return normalized or None
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: str
@@ -49,6 +75,8 @@ class PublicProfileResponse(BaseModel):
     display_name: str
     bio: str | None
     avatar_url: str | None
+    avatar_source: Literal["builtin", "google", "url"]
+    avatar_asset_id: uuid.UUID | None
     tags: list[ProfileTagResponse]
 
 
@@ -60,6 +88,7 @@ class UserProfileUpdate(BaseModel):
     display_name: str | None = Field(default=None, min_length=1, max_length=80)
     bio: str | None = Field(default=None, max_length=500)
     avatar_url: str | None = Field(default=None, max_length=1000, pattern=r"^https?://[^\s]+$")
+    avatar_asset_id: uuid.UUID | None = None
     tags: list[str] | None = Field(default=None, max_length=8)
 
     @field_validator("display_name", mode="before")
@@ -485,6 +514,29 @@ class ReviewTimelineResponse(BaseModel):
     reviews: list[ReviewResponse]
 
 
+class ProfileReviewResponse(BaseModel):
+    """Current user's review history card / 使用者自己的留言紀錄卡片。"""
+
+    id: uuid.UUID
+    restaurant_id: uuid.UUID
+    restaurant_name: str
+    restaurant_photo_url: str | None
+    entry_number: int
+    is_revisit: bool
+    content: str
+    revisit_status: RevisitStatus
+    reasons: list[ReviewReasonResponse]
+    created_at: datetime
+    updated_at: datetime
+    is_edited: bool
+    revisit_count: int
+
+
+class ProfileReviewListResponse(BaseModel):
+    reviews: list[ProfileReviewResponse]
+    total: int
+
+
 class ReviewLikeResponse(BaseModel):
     liked: bool
     like_count: int
@@ -510,3 +562,109 @@ class FavoriteListResponse(BaseModel):
 
 class FavoriteStateResponse(BaseModel):
     favorited: bool
+
+
+MealVisibility = Literal["public", "private"]
+MealStatus = Literal[
+    "open",
+    "awaiting_host_decision",
+    "voting",
+    "decided",
+    "cancelled",
+    "completed",
+]
+MealMembershipStatus = Literal["host", "member", "pending", "rejected", "left", "removed"]
+MealRestaurantMode = Literal["direct", "vote"]
+
+
+class MealCreateRequest(BaseModel):
+    """The confirmed fields needed to create a Stage 7 meal / 建立 Stage 7 約飯所需欄位。"""
+
+    visibility: MealVisibility
+    title: str = Field(min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=500)
+    scheduled_at: datetime
+    join_deadline: datetime | None = None
+    capacity: int = Field(ge=2)
+    restaurant_mode: MealRestaurantMode
+    restaurant_id: uuid.UUID | None = None
+
+    @field_validator("title", "description", mode="before")
+    @classmethod
+    def normalize_meal_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("meal text must be a string")
+        normalized = re.sub(r"\s+", " ", value).strip()
+        return normalized or None
+
+    @model_validator(mode="after")
+    def validate_meal_choice(self) -> MealCreateRequest:
+        if not self.title:
+            raise ValueError("title cannot be empty")
+        if self.restaurant_mode == "direct" and self.restaurant_id is None:
+            raise ValueError("a direct meal needs a restaurant")
+        if self.visibility == "public" and self.join_deadline is None:
+            raise ValueError("a public meal needs a join deadline")
+        return self
+
+
+class MealCandidateCreateRequest(BaseModel):
+    restaurant_id: uuid.UUID
+
+
+class MealVoteRequest(BaseModel):
+    candidate_id: uuid.UUID
+
+
+class MealMemberResponse(BaseModel):
+    user_id: uuid.UUID
+    display_name: str
+    avatar_url: str | None
+    tags: list[str] = Field(default_factory=list)
+    bio: str | None = None
+    meal_count: int | None = None
+    membership_status: MealMembershipStatus
+
+
+class MealRestaurantResponse(BaseModel):
+    id: uuid.UUID
+    name: str
+    address: str
+    cuisine_name: str | None
+    photo_url: str | None
+
+
+class MealCandidateResponse(BaseModel):
+    id: uuid.UUID
+    position: int
+    restaurant: MealRestaurantResponse
+    vote_count: int | None
+
+
+class MealResponse(BaseModel):
+    """A meal card/detail contract with only live server-derived state / 約飯卡片與詳情契約。"""
+
+    id: uuid.UUID
+    visibility: MealVisibility
+    title: str
+    description: str | None
+    scheduled_at: datetime
+    join_deadline: datetime | None
+    capacity: int
+    status: MealStatus
+    host: MealMemberResponse
+    members: list[MealMemberResponse]
+    member_count: int
+    candidates: list[MealCandidateResponse]
+    decided_restaurant: MealRestaurantResponse | None
+    my_membership_status: MealMembershipStatus | None
+    my_vote_candidate_id: uuid.UUID | None
+    can_join: bool
+    can_vote: bool
+    can_manage: bool
+
+
+class MealListResponse(BaseModel):
+    meals: list[MealResponse]

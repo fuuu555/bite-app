@@ -12,6 +12,7 @@ import { Suspense, useEffect, useState, type FormEvent } from "react";
 
 import {
   ExploreApiError,
+  FALLBACK_EXPLORE_LOCATION,
   type ExploreDistanceKm,
   type ExploreFilters,
   type ExploreLocation,
@@ -76,6 +77,8 @@ function RestaurantFeatureCard({
   restaurant: ExploreRestaurant;
   rank: number;
 }) {
+  const distanceLabel = formatExploreDistance(restaurant.distance_meters);
+
   return (
     <article className="explore-feature-card">
       <div className="explore-feature-card__media">
@@ -90,7 +93,7 @@ function RestaurantFeatureCard({
         <h3>{restaurant.name}</h3>
         <p>{restaurant.address}</p>
         <div className="explore-restaurant-card__meta">
-          <span>{formatExploreDistance(restaurant.distance_meters)}</span>
+          {distanceLabel ? <span>{distanceLabel}</span> : null}
           <span>{priceRangeLabels[restaurant.price_range]}</span>
         </div>
         <RestaurantScores restaurant={restaurant} />
@@ -104,6 +107,8 @@ function RestaurantFeatureCard({
 }
 
 function RestaurantResultRow({ restaurant }: { restaurant: ExploreRestaurant }) {
+  const distanceLabel = formatExploreDistance(restaurant.distance_meters);
+
   return (
     <article className="explore-result-row">
       <RestaurantVisualPlaceholder restaurant={restaurant} />
@@ -115,7 +120,7 @@ function RestaurantResultRow({ restaurant }: { restaurant: ExploreRestaurant }) 
         <h3>{restaurant.name}</h3>
         <p>{restaurant.address}</p>
         <div className="explore-restaurant-card__meta">
-          <span>{formatExploreDistance(restaurant.distance_meters)}</span>
+          {distanceLabel ? <span>{distanceLabel}</span> : null}
           <span>{priceRangeLabels[restaurant.price_range]}</span>
         </div>
         <RestaurantScores restaurant={restaurant} />
@@ -164,7 +169,10 @@ function ExplorePageContent({
 
     if (!navigator.geolocation) {
       const timeoutId = window.setTimeout(
-        () => setError("此瀏覽器不支援定位，無法使用距離篩選。"),
+        () => {
+          setLocation(FALLBACK_EXPLORE_LOCATION);
+          setError("此瀏覽器不支援定位，已改用中原大學測試店位置計算距離。 ");
+        },
         0,
       );
       return () => window.clearTimeout(timeoutId);
@@ -175,8 +183,8 @@ function ExplorePageContent({
         setLocation({ latitude: coords.latitude, longitude: coords.longitude });
       },
       () => {
-        setError("無法取得目前位置，請允許定位後再使用距離篩選。");
-        setIsLoading(false);
+        setLocation(FALLBACK_EXPLORE_LOCATION);
+        setError("無法取得目前位置，已改用中原大學測試店位置計算距離。 ");
       },
       { enableHighAccuracy: false, maximumAge: 300_000, timeout: 10_000 },
     );
@@ -223,7 +231,6 @@ function ExplorePageContent({
         </div>
         <div className="explore-page__intro">
           <h1>今天想吃什麼？</h1>
-          <p>搜尋已發布店家，從距離、價格與料理開始縮小選擇。</p>
         </div>
       </header>
 
@@ -255,7 +262,6 @@ function ExplorePageContent({
                   distanceKm: parseDistance(event.target.value),
                 }))
               }
-              aria-describedby="explore-distance-hint"
             >
               <option value="">不限距離</option>
               <option value="2">2 km 內</option>
@@ -299,11 +305,6 @@ function ExplorePageContent({
             </select>
           </label>
         </div>
-        <small id="explore-distance-hint">
-          {draftFilters.distanceKm
-            ? "送出搜尋時會使用目前位置計算距離。"
-            : "距離篩選需要瀏覽器定位權限。"}
-        </small>
         <button className="button button--primary" type="submit" disabled={isLoading}>
           <IconSearch aria-hidden="true" />
           {isLoading ? "搜尋中…" : "開始探索"}
@@ -314,14 +315,10 @@ function ExplorePageContent({
 
       <section className="explore-section" aria-labelledby="top-three-title">
         <div className="explore-section__heading">
-          <div>
-            <h2 id="top-three-title">
-              <IconToolsKitchen3 aria-hidden="true" />
-              本週 Top 3 必吃
-            </h2>
-            <p>依目前穩定排序顯示；推薦權重與會員資料尚未啟用。</p>
-          </div>
-          <span className="explore-section__status">搜尋後更新</span>
+          <h2 id="top-three-title">
+            <IconToolsKitchen3 aria-hidden="true" />
+            本週 Top 3 必吃
+          </h2>
         </div>
         {result?.top_restaurants.length ? (
           <div className="explore-top-three">
@@ -336,17 +333,14 @@ function ExplorePageContent({
 
       <section className="explore-section" aria-labelledby="all-results-title">
         <div className="explore-section__heading">
-          <div>
-            <h2 id="all-results-title">
-              <IconToolsKitchen3 aria-hidden="true" />
-              完整搜尋結果
-            </h2>
-            <p>同一份搜尋結果以清單呈現，方便快速比較。</p>
-          </div>
+          <h2 id="all-results-title">
+            <IconToolsKitchen3 aria-hidden="true" />
+            完整搜尋結果
+          </h2>
           <label className="explore-sort">
             <span>排序</span>
             <select disabled>
-              <option>穩定排序（骨架）</option>
+              <option>推薦排序</option>
             </select>
           </label>
         </div>

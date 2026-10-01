@@ -1,9 +1,12 @@
-"""Allow Google users to share an email with admin accounts / 允許 Google 使用者與管理員共用 email。"""
+"""Allow Google users to share an email with admin accounts.
+
+允許 Google 使用者與管理員共用 email。
+"""
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "0009_user_admin_email_overlap"
 down_revision: str | None = "0008_google_oauth"

@@ -46,6 +46,17 @@ export type RestaurantPhoto = {
   created_at: string;
 };
 
+export type AvatarAsset = {
+  id: string;
+  display_name: string;
+  url: string;
+  mime_type: string;
+  file_size: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export class AdminApiError extends Error {
   constructor(
     public readonly status: number,
@@ -56,13 +67,15 @@ export class AdminApiError extends Error {
 }
 
 export async function adminApi<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const headers = new Headers(init?.headers);
+  if (!isFormData && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
   const response = await fetch(`/api/v1/admin${path}`, {
     ...init,
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {

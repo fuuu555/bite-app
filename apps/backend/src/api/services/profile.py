@@ -10,8 +10,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from api.domain.models import ProfileTag, User, UserProfile, UserSession
+from api.domain.models import AvatarAsset, ProfileTag, User, UserProfile, UserSession
 from api.domain.schemas import (
+    AvatarAssetResponse,
     MyProfileResponse,
     ProfileTagResponse,
     PublicProfileResponse,
@@ -35,10 +36,43 @@ def _tag_slug(display_name: str) -> str:
 async def get_profile(session: AsyncSession, user_id: uuid.UUID) -> UserProfile | None:
     result = await session.execute(
         select(UserProfile)
-        .options(selectinload(UserProfile.tags))
+        .options(selectinload(UserProfile.tags), selectinload(UserProfile.avatar_asset))
+        .execution_options(populate_existing=True)
         .where(UserProfile.user_id == user_id)
     )
     return result.scalar_one_or_none()
+
+
+def avatar_url_for_profile(profile: UserProfile) -> str | None:
+    """Resolve a local asset before falling back to an external URL.
+
+    內建頭貼優先使用本地資產，沒有資產時才回退到既有外部 URL。
+    """
+    if profile.avatar_asset is not None:
+        return f"/media/{profile.avatar_asset.storage_key}"
+    return profile.avatar_url
+
+
+def avatar_asset_response(asset: AvatarAsset) -> AvatarAssetResponse:
+    return AvatarAssetResponse(
+        id=asset.id,
+        display_name=asset.display_name,
+        url=f"/media/{asset.storage_key}",
+        mime_type=asset.mime_type,
+        file_size=asset.file_size,
+        is_active=asset.is_active,
+        created_at=asset.created_at,
+        updated_at=asset.updated_at,
+    )
+
+
+async def list_active_avatar_assets(session: AsyncSession) -> list[AvatarAsset]:
+    result = await session.execute(
+        select(AvatarAsset)
+        .where(AvatarAsset.is_active.is_(True))
+        .order_by(AvatarAsset.display_name, AvatarAsset.created_at)
+    )
+    return list(result.scalars())
 
 
 async def create_profile(
@@ -55,6 +89,7 @@ async def create_profile(
         display_name=display_name,
         bio=bio,
         avatar_url=avatar_url,
+        avatar_source="google" if avatar_url else "url",
         tags=resolved_tags,
     )
     session.add(profile)
@@ -108,9 +143,26 @@ async def update_profile(
     if profile is None:
         profile = await create_profile(session, user, payload.display_name or "BiteMap 使用者")
 
-    values = payload.model_dump(exclude_unset=True, exclude={"tags"})
+    values = payload.model_dump(exclude_unset=True, exclude={"tags", "avatar_asset_id"})
     for field, value in values.items():
         setattr(profile, field, value)
+    if "avatar_url" in payload.model_fields_set:
+        profile.avatar_source = "url"
+        profile.avatar_asset_id = None
+    if "avatar_asset_id" in payload.model_fields_set:
+        if payload.avatar_asset_id is None:
+            profile.avatar_asset_id = None
+        else:
+            asset = await session.scalar(
+                select(AvatarAsset).where(
+                    AvatarAsset.id == payload.avatar_asset_id,
+                    AvatarAsset.is_active.is_(True),
+                )
+            )
+            if asset is None:
+                raise ValueError("avatar asset is not available")
+            profile.avatar_source = "builtin"
+            profile.avatar_asset_id = asset.id
     if "tags" in payload.model_fields_set and payload.tags is not None:
         profile.tags = await resolve_tags(session, user.id, payload.tags)
     await session.commit()
@@ -124,7 +176,9 @@ def public_profile_response(user: User, profile: UserProfile) -> PublicProfileRe
         id=user.id,
         display_name=profile.display_name,
         bio=profile.bio,
-        avatar_url=profile.avatar_url,
+        avatar_url=avatar_url_for_profile(profile),
+        avatar_source=profile.avatar_source,  # type: ignore[arg-type]
+        avatar_asset_id=profile.avatar_asset_id,
         tags=[ProfileTagResponse.model_validate(tag) for tag in profile.tags],
     )
 
@@ -135,7 +189,9 @@ def my_profile_response(user: User, profile: UserProfile) -> MyProfileResponse:
         email=user.email,
         display_name=profile.display_name,
         bio=profile.bio,
-        avatar_url=profile.avatar_url,
+        avatar_url=avatar_url_for_profile(profile),
+        avatar_source=profile.avatar_source,  # type: ignore[arg-type]
+        avatar_asset_id=profile.avatar_asset_id,
         tags=[ProfileTagResponse.model_validate(tag) for tag in profile.tags],
     )
 

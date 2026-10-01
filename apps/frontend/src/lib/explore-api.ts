@@ -22,6 +22,13 @@ export type ExploreLocation = {
   longitude: number;
 };
 
+// Keep local distance fallback aligned with the existing Zhongyuan test restaurant.
+// 本機拒絕瀏覽器定位時，使用既有中原大學測試店的位置計算距離。
+export const FALLBACK_EXPLORE_LOCATION: ExploreLocation = {
+  latitude: 24.9571129,
+  longitude: 121.2425529,
+};
+
 export function distanceBetweenLocations(first: ExploreLocation, second: ExploreLocation): number {
   const earthRadiusMeters = 6_371_000;
   const latitudeDelta = ((second.latitude - first.latitude) * Math.PI) / 180;
@@ -34,8 +41,8 @@ export function distanceBetweenLocations(first: ExploreLocation, second: Explore
   return 2 * earthRadiusMeters * Math.asin(Math.sqrt(haversine));
 }
 
-export function formatExploreDistance(distanceMeters: number | null): string {
-  if (distanceMeters === null) return "尚未取得定位";
+export function formatExploreDistance(distanceMeters: number | null): string | null {
+  if (distanceMeters === null) return null;
   if (distanceMeters < 1000) return `${Math.round(distanceMeters)} m`;
   return `${(distanceMeters / 1000).toFixed(1)} km`;
 }

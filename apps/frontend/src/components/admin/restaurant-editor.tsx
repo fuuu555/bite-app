@@ -27,6 +27,12 @@ const emptyForm = {
   longitude: null as number | null,
 };
 
+function addressHasFloor(address: string) {
+  return /(\d+\s*(?:樓|層)|[一二三四五六七八九十]+\s*(?:樓|層)|地下\s*\d*\s*樓|b\d+)/i.test(
+    address,
+  );
+}
+
 export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
   const router = useRouter();
   const [form, setForm] = useState(emptyForm);
@@ -255,6 +261,10 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
 
   async function geocode() {
     setMessage("");
+    if (addressHasFloor(form.address)) {
+      setMessage("地址定位請先移除「一樓／5 樓」等樓層資訊；完整地址可在定位後再補回。 ");
+      return;
+    }
     try {
       const result = await adminApi<{
         candidates: Array<{ label: string; latitude: number; longitude: number }>;
@@ -353,12 +363,18 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
                 <input
                   value={form.address}
                   onChange={(event) => setForm({ ...form, address: event.target.value })}
+                  placeholder="例：台北市信義區忠孝東路五段159號（不要輸入樓層）"
                   required
                 />
                 <button type="button" className="button button--quiet" onClick={geocode}>
                   地址定位
                 </button>
               </span>
+              {addressHasFloor(form.address) ? (
+                <small className="field-hint field-hint--warning">
+                  定位服務通常無法辨識樓層；請先移除「一樓／5 樓」等資訊再按地址定位。
+                </small>
+              ) : null}
             </label>
             <label className="form-grid__wide">
               菜單網址（可選）

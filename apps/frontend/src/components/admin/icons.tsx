@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-type IconName = "restaurant" | "cuisine" | "logout" | "map" | "plus" | "back";
+type IconName = "restaurant" | "cuisine" | "logout" | "map" | "plus" | "back" | "user";
 
 const paths: Record<IconName, React.ReactNode> = {
   restaurant: <path d="M4 5h16v14H4zM8 9h8M8 13h5" />,
@@ -9,6 +9,7 @@ const paths: Record<IconName, React.ReactNode> = {
   map: <path d="m3 6 5-2 8 3 5-2v13l-5 2-8-3-5 2zm5-2v13m8-10v13" />,
   plus: <path d="M12 5v14M5 12h14" />,
   back: <path d="m15 5-7 7 7 7" />,
+  user: <path d="M5 20a7 7 0 0 1 14 0M12 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" />,
 };
 
 export function Icon({ name, ...props }: { name: IconName } & SVGProps<SVGSVGElement>) {

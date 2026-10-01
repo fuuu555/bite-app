@@ -5,7 +5,17 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,10 +30,19 @@ from api.core.security import (
     set_admin_session_cookie,
     verify_password,
 )
-from api.domain.models import Cuisine, Restaurant, RestaurantMenu, RestaurantPhoto, User
+from api.domain.models import (
+    AvatarAsset,
+    Cuisine,
+    Restaurant,
+    RestaurantMenu,
+    RestaurantPhoto,
+    User,
+)
 from api.domain.schemas import (
     AdminLoginRequest,
     AdminUserResponse,
+    AvatarAssetResponse,
+    AvatarAssetUpdate,
     CuisineCreate,
     CuisineResponse,
     CuisineUpdate,
@@ -48,6 +67,8 @@ from api.services.admin import (
     restaurant_response,
     update_restaurant,
 )
+from api.services.avatar_assets import create_avatar_asset
+from api.services.profile import avatar_asset_response
 from api.services.restaurant_content import (
     create_menu,
     create_photo,
@@ -101,6 +122,58 @@ async def logout(
 @router.get("/me", response_model=AdminUserResponse)
 async def current_admin(admin: AdminDep) -> AdminUserResponse:
     return AdminUserResponse(id=admin.id, email=admin.email, role=admin.role)
+
+
+@router.get("/avatar-assets", response_model=list[AvatarAssetResponse])
+async def list_avatar_assets(_: AdminDep, session: SessionDep) -> list[AvatarAssetResponse]:
+    """List every avatar asset so admins can manage activation / 列出全部頭貼供管理員管理。"""
+    result = await session.execute(
+        select(AvatarAsset).order_by(AvatarAsset.is_active.desc(), AvatarAsset.display_name)
+    )
+    return [avatar_asset_response(asset) for asset in result.scalars()]
+
+
+@router.post(
+    "/avatar-assets",
+    response_model=AvatarAssetResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def upload_avatar_asset(
+    display_name: Annotated[str, Form(min_length=1, max_length=80)],
+    file: Annotated[UploadFile, File(...)],
+    admin: AdminDep,
+    session: SessionDep,
+) -> AvatarAssetResponse:
+    """Upload one local avatar asset / 上傳一個本地頭貼資產。"""
+    try:
+        asset = await create_avatar_asset(session, admin, file, display_name)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
+    return avatar_asset_response(asset)
+
+
+@router.patch("/avatar-assets/{asset_id}", response_model=AvatarAssetResponse)
+async def update_avatar_asset(
+    asset_id: uuid.UUID,
+    payload: AvatarAssetUpdate,
+    _: AdminDep,
+    session: SessionDep,
+) -> AvatarAssetResponse:
+    """Rename or deactivate an avatar without deleting referenced files.
+
+    可重新命名或停用頭貼，不直接刪除仍被使用的檔案。
+    """
+    asset = await session.get(AvatarAsset, asset_id)
+    if asset is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="avatar asset not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(asset, field, value)
+    await session.commit()
+    await session.refresh(asset)
+    return avatar_asset_response(asset)
 
 
 @router.get("/cuisines", response_model=list[CuisineResponse])

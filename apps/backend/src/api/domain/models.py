@@ -73,6 +73,30 @@ class UserIdentity(Base):
     user: Mapped[User] = relationship(back_populates="identities")
 
 
+class AvatarAsset(Base):
+    """Admin-managed local avatar asset / 管理員管理的本地頭貼資產。"""
+
+    __tablename__ = "avatar_assets"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    display_name: Mapped[str] = mapped_column(String(80))
+    storage_key: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    mime_type: Mapped[str] = mapped_column(String(80))
+    file_size: Mapped[int] = mapped_column(Integer)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    created_by: Mapped[User | None] = relationship()
+
+
 class UserProfile(Base):
     """User-owned public profile fields / 使用者可管理的公開個人資料。"""
 
@@ -84,6 +108,10 @@ class UserProfile(Base):
     display_name: Mapped[str] = mapped_column(String(80))
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    avatar_source: Mapped[str] = mapped_column(String(16), default="url")
+    avatar_asset_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("avatar_assets.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -92,6 +120,7 @@ class UserProfile(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="profile")
+    avatar_asset: Mapped[AvatarAsset | None] = relationship()
     tags: Mapped[list[ProfileTag]] = relationship(
         secondary="user_profile_tags",
         back_populates="profiles",
@@ -464,6 +493,139 @@ class RestaurantFavorite(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class MealEvent(Base):
+    """A hosted meal with an open or approval-based join policy / 一場可加入或需審核的約飯。"""
+
+    __tablename__ = "meal_events"
+    __table_args__ = (
+        CheckConstraint("visibility IN ('public', 'private')", name="ck_meal_events_visibility"),
+        CheckConstraint(
+            "status IN ('open', 'awaiting_host_decision', 'voting', 'decided', "
+            "'cancelled', 'completed')",
+            name="ck_meal_events_status",
+        ),
+        CheckConstraint("capacity >= 2", name="ck_meal_events_capacity"),
+        Index("ix_meal_events_visibility_status_time", "visibility", "status", "scheduled_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    host_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    visibility: Mapped[str] = mapped_column(String(16))
+    title: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    join_deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    capacity: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(24), default="open")
+    decided_restaurant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    host: Mapped[User] = relationship(foreign_keys=[host_user_id])
+    decided_restaurant: Mapped[Restaurant | None] = relationship(
+        foreign_keys=[decided_restaurant_id]
+    )
+    memberships: Mapped[list[MealMembership]] = relationship(
+        back_populates="meal", cascade="all, delete-orphan"
+    )
+    candidates: Mapped[list[MealCandidate]] = relationship(
+        back_populates="meal", cascade="all, delete-orphan", order_by="MealCandidate.position"
+    )
+    votes: Mapped[list[MealVote]] = relationship(
+        back_populates="meal", cascade="all, delete-orphan"
+    )
+
+
+class MealMembership(Base):
+    """One user's current membership state in a meal / 一位使用者在約飯中的成員狀態。"""
+
+    __tablename__ = "meal_memberships"
+    __table_args__ = (
+        CheckConstraint(
+            "membership_status IN ('host', 'member', 'pending', 'rejected', 'left', 'removed')",
+            name="ck_meal_memberships_status",
+        ),
+        Index("ix_meal_memberships_meal_status", "meal_event_id", "membership_status"),
+    )
+
+    meal_event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("meal_events.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    membership_status: Mapped[str] = mapped_column(String(16))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    meal: Mapped[MealEvent] = relationship(back_populates="memberships")
+    user: Mapped[User] = relationship()
+
+
+class MealCandidate(Base):
+    """A restaurant eligible for a meal's one-person-one-vote ballot / 約飯投票候選餐廳。"""
+
+    __tablename__ = "meal_candidates"
+    __table_args__ = (
+        CheckConstraint("position BETWEEN 1 AND 3", name="ck_meal_candidates_position"),
+        UniqueConstraint("meal_event_id", "restaurant_id", name="uq_meal_candidates_restaurant"),
+        UniqueConstraint("meal_event_id", "position", name="uq_meal_candidates_position"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    meal_event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("meal_events.id", ondelete="CASCADE"), index=True
+    )
+    restaurant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("restaurants.id", ondelete="RESTRICT")
+    )
+    position: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    meal: Mapped[MealEvent] = relationship(back_populates="candidates")
+    restaurant: Mapped[Restaurant] = relationship()
+
+
+class MealVote(Base):
+    """The latest ballot cast by one formal member / 一位正式成員投出的最新選票。"""
+
+    __tablename__ = "meal_votes"
+
+    meal_event_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("meal_events.id", ondelete="CASCADE"), primary_key=True
+    )
+    voter_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    candidate_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("meal_candidates.id", ondelete="CASCADE"), index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    meal: Mapped[MealEvent] = relationship(back_populates="votes")
+    voter: Mapped[User] = relationship(foreign_keys=[voter_user_id])
+    candidate: Mapped[MealCandidate] = relationship()
 
 
 class AuditLog(Base):

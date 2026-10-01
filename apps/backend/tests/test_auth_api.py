@@ -92,9 +92,7 @@ async def test_google_login_creates_profile_session_and_logout(
                 )
                 session.add(other_user)
                 await session.flush()
-                other_session, _ = await create_user_session(
-                    session, other_user, "其他裝置"
-                )
+                other_session, _ = await create_user_session(session, other_user, "其他裝置")
                 other_user_id = other_user.id
                 other_session_id = other_session.id
 

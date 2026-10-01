@@ -25,6 +25,7 @@ from api.core.security import (
 )
 from api.domain.models import User, UserIdentity, UserProfile, UserSession
 from api.domain.schemas import (
+    AvatarAssetResponse,
     MyProfileResponse,
     PublicProfileResponse,
     UserProfileUpdate,
@@ -38,8 +39,10 @@ from api.integrations.google_oauth import (
     exchange_google_code,
 )
 from api.services.profile import (
+    avatar_asset_response,
     create_profile,
     get_profile,
+    list_active_avatar_assets,
     my_profile_response,
     public_profile_response,
     update_profile,
@@ -235,13 +238,26 @@ async def read_my_profile(current: UserDep, session: SessionDep) -> MyProfileRes
     return my_profile_response(current.user, profile)
 
 
+@router.get("/avatar-assets", response_model=list[AvatarAssetResponse])
+async def read_avatar_assets(current: UserDep, session: SessionDep) -> list[AvatarAssetResponse]:
+    """List active built-in avatars / 列出可供使用者選擇的啟用頭貼。"""
+    del current
+    return [avatar_asset_response(asset) for asset in await list_active_avatar_assets(session)]
+
+
 @router.patch("/me/profile", response_model=MyProfileResponse)
 async def patch_my_profile(
     payload: UserProfileUpdate,
     current: UserDep,
     session: SessionDep,
 ) -> MyProfileResponse:
-    profile = await update_profile(session, current.user, payload)
+    try:
+        profile = await update_profile(session, current.user, payload)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(error),
+        ) from error
     return my_profile_response(current.user, profile)
 
 
@@ -259,7 +275,7 @@ async def read_public_profile(user_id: uuid.UUID, session: SessionDep) -> Public
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="profile not found")
     profile = await session.execute(
         select(UserProfile)
-        .options(selectinload(UserProfile.tags))
+        .options(selectinload(UserProfile.tags), selectinload(UserProfile.avatar_asset))
         .where(UserProfile.user_id == user_id)
     )
     user_profile = profile.scalar_one_or_none()

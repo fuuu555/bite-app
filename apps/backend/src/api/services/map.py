@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 
 from geoalchemy2 import Geography
@@ -81,13 +82,38 @@ def _is_map_ready(restaurant: Restaurant) -> bool:
 
 
 def _normalize_area_term(value: str) -> str:
-    """Match common 台／臺 spelling variants in stored addresses."""
-    return value.strip().lower().replace("台", "臺")
+    """Normalize Taiwan address text used by filters and search / 正規化台灣地址搜尋文字。"""
+    normalized = value.strip().lower()
+    for source in ("台灣", "臺灣", "台", "巿"):
+        normalized = normalized.replace(
+            source, "臺" if source == "台" else "市" if source == "巿" else ""
+        )
+    normalized = normalized.strip()
+    normalized = re.sub(r"^\d{3,6}", "", normalized)
+    return re.sub(r"[\s,，、.．·\-－—]", "", normalized)
 
 
 def _normalized_address():
-    """Normalize common 台／臺 spelling variants before area filtering."""
-    return func.replace(func.lower(Restaurant.address), "台", "臺")
+    """Normalize stored addresses before area filtering and search / 正規化資料庫地址。"""
+    normalized = func.lower(Restaurant.address)
+    for source, target in (
+        ("台灣", ""),
+        ("臺灣", ""),
+        ("台", "臺"),
+        ("巿", "市"),
+        (" ", ""),
+        (",", ""),
+        ("，", ""),
+        ("、", ""),
+        (".", ""),
+        ("．", ""),
+        ("·", ""),
+        ("-", ""),
+        ("－", ""),
+        ("—", ""),
+    ):
+        normalized = func.replace(normalized, source, target)
+    return normalized
 
 
 def _restaurant_response(restaurant: Restaurant) -> MapRestaurantResponse:
@@ -128,7 +154,8 @@ async def query_public_restaurant_search(
     result_limit: int,
 ) -> list[MapRestaurantResponse]:
     """Search published restaurants by name or address / 搜尋已發布店家名稱或地址。"""
-    term = query.strip().lower()
+    name_term = query.strip().lower()
+    address_term = _normalize_area_term(query)
     statement: Select[tuple[Restaurant]] = (
         select(Restaurant)
         .options(
@@ -141,8 +168,8 @@ async def query_public_restaurant_search(
             Restaurant.primary_cuisine_id.is_not(None),
             Restaurant.price_range.is_not(None),
             or_(
-                func.lower(Restaurant.name).contains(term),
-                func.lower(Restaurant.address).contains(term),
+                func.lower(Restaurant.name).contains(name_term),
+                _normalized_address().contains(address_term),
             ),
         )
         .order_by(Restaurant.updated_at.desc(), Restaurant.id)

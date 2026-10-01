@@ -6,7 +6,6 @@ import { Cuisine, adminApi } from "@/lib/admin-api";
 
 const colorOptions = ["#F26B4F", "#E7B75A", "#4E8F6B", "#4277A6", "#A74A5B"];
 const iconOptions = [
-  { value: "rice-bowl", label: "飯碗" },
   { value: "burger", label: "漢堡" },
   { value: "leaf", label: "葉片" },
   { value: "fish", label: "魚" },
@@ -14,7 +13,6 @@ const iconOptions = [
 ];
 
 const iconGlyphs: Record<string, string> = {
-  "rice-bowl": "🍚",
   burger: "🍔",
   leaf: "🥬",
   fish: "🐟",
@@ -319,9 +317,11 @@ export function CuisineManager() {
                 ) : (
                   <>
                     <span className="cuisine-swatch" style={{ background: cuisine.color }} />
-                    <span className="cuisine-icon" aria-label={`${cuisine.display_name}圖示`}>
-                      {iconGlyphs[cuisine.icon_key] ?? "🍽️"}
-                    </span>
+                    {iconGlyphs[cuisine.icon_key] ? (
+                      <span className="cuisine-icon" aria-label={`${cuisine.display_name}圖示`}>
+                        {iconGlyphs[cuisine.icon_key]}
+                      </span>
+                    ) : null}
                     <div className="cuisine-list__identity">
                       <strong>{cuisine.display_name}</strong>
                       <small>{cuisine.slug}</small>

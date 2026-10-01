@@ -57,6 +57,22 @@ export type FavoriteRestaurant = {
   created_at: string;
 };
 
+export type ProfileReview = {
+  id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  restaurant_photo_url: string | null;
+  entry_number: number;
+  is_revisit: boolean;
+  content: string;
+  revisit_status: RevisitStatus;
+  reasons: ReviewReason[];
+  created_at: string;
+  updated_at: string;
+  is_edited: boolean;
+  revisit_count: number;
+};
+
 export class ReviewsApiError extends Error {
   constructor(
     public readonly status: number,
@@ -147,4 +163,8 @@ export function setFavorite(restaurantId: string, favorited: boolean) {
 
 export function fetchMyFavorites() {
   return reviewsApi<{ restaurants: FavoriteRestaurant[]; total: number }>("/me/favorites");
+}
+
+export function fetchMyReviews() {
+  return reviewsApi<{ reviews: ProfileReview[]; total: number }>("/me/reviews");
 }

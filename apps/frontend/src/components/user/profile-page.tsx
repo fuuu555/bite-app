@@ -3,8 +3,8 @@
 import {
   IconBookmark,
   IconChevronRight,
-  IconHeart,
-  IconMap2,
+  IconLogout,
+  IconMessageCircle,
   IconSettings,
   IconTag,
   IconUser,
@@ -14,12 +14,20 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { MyProfile, UserApiError, userApi } from "@/lib/user-api";
-import { FavoriteRestaurant, fetchMyFavorites, ReviewsApiError } from "@/lib/reviews-api";
+import {
+  FavoriteRestaurant,
+  fetchMyFavorites,
+  fetchMyReviews,
+  ProfileReview,
+  ReviewsApiError,
+} from "@/lib/reviews-api";
+
+type ProfileTab = "overview" | "reviews" | "favorites";
 
 function ProfileAvatar({ profile }: { profile: Pick<MyProfile, "avatar_url" | "display_name"> }) {
   return profile.avatar_url ? (
-    // Keep avatar rendering URL-based until signed object-storage uploads are available.
-    // 簽名物件儲存上傳完成前，頭像維持使用可驗證的 URL。
+    // Local assets and external Google URLs both resolve through the same public field.
+    // 本地資產與 Google 頭像 URL 都透過同一個公開欄位顯示。
     // eslint-disable-next-line @next/next/no-img-element
     <img
       className="profile-avatar"
@@ -33,17 +41,85 @@ function ProfileAvatar({ profile }: { profile: Pick<MyProfile, "avatar_url" | "d
   );
 }
 
+function reviewStatusLabel(status: ProfileReview["revisit_status"]) {
+  if (status === "will_return") return "會再訪";
+  if (status === "will_not_return") return "不會再訪";
+  return "普通";
+}
+
+function formatReviewDate(value: string) {
+  return new Intl.DateTimeFormat("zh-TW", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).format(new Date(value));
+}
+
+function ProfileReviewRow({ review }: { review: ProfileReview }) {
+  return (
+    <Link className="profile-review-row" href={`/restaurants/${review.restaurant_id}`}>
+      {review.restaurant_photo_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={review.restaurant_photo_url} alt="" />
+      ) : (
+        <span className="profile-review-row__placeholder" aria-hidden="true">
+          {review.restaurant_name.slice(0, 1)}
+        </span>
+      )}
+      <span className="profile-review-row__content">
+        <span className="profile-review-row__heading">
+          <strong>{review.restaurant_name}</strong>
+          <small>{formatReviewDate(review.updated_at)}</small>
+        </span>
+        <span className="profile-review-row__text">{review.content}</span>
+        <span className="profile-review-row__meta">
+          <span className={`review-status is-${review.revisit_status}`}>
+            {reviewStatusLabel(review.revisit_status)}
+          </span>
+          {review.is_revisit ? `第 ${review.entry_number} 次留言` : "第一次留言"}
+          {review.revisit_count > 1 ? ` · 共 ${review.revisit_count} 次` : ""}
+          {review.is_edited ? " · 已編輯" : ""}
+        </span>
+      </span>
+      <IconChevronRight aria-hidden="true" />
+    </Link>
+  );
+}
+
+function FavoriteRow({ restaurant }: { restaurant: FavoriteRestaurant }) {
+  return (
+    <Link className="profile-favorite-row" href={`/restaurants/${restaurant.id}`}>
+      <span
+        className="profile-favorite-row__marker"
+        style={{ backgroundColor: restaurant.primary_cuisine.color }}
+      />
+      <span>
+        <strong>{restaurant.name}</strong>
+        <small>
+          {restaurant.primary_cuisine.display_name} · {restaurant.address}
+        </small>
+      </span>
+      <IconChevronRight aria-hidden="true" />
+    </Link>
+  );
+}
+
 export function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [favorites, setFavorites] = useState<FavoriteRestaurant[]>([]);
+  const [reviews, setReviews] = useState<ProfileReview[]>([]);
+  const [tab, setTab] = useState<ProfileTab>("overview");
   const [error, setError] = useState("");
+  const [logoutError, setLogoutError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
-    Promise.all([userApi<MyProfile>("/me/profile"), fetchMyFavorites()])
-      .then(([loadedProfile, loadedFavorites]) => {
+    Promise.all([userApi<MyProfile>("/me/profile"), fetchMyFavorites(), fetchMyReviews()])
+      .then(([loadedProfile, loadedFavorites, loadedReviews]) => {
         setProfile(loadedProfile);
         setFavorites(loadedFavorites.restaurants);
+        setReviews(loadedReviews.reviews);
       })
       .catch((caught) => {
         if (
@@ -57,21 +133,26 @@ export function ProfilePage() {
       });
   }, [router]);
 
-  if (error) {
-    return <ProfileState message={error} />;
+  async function logout() {
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      await userApi<void>("/auth/session", { method: "DELETE" });
+      router.replace("/login");
+      router.refresh();
+    } catch {
+      setLogoutError("登出失敗，請稍後再試。");
+      setLoggingOut(false);
+    }
   }
-  if (!profile) {
-    return <ProfileState message="正在整理你的 BiteMap 個人頁面…" loading />;
-  }
+
+  if (error) return <ProfileState message={error} />;
+  if (!profile) return <ProfileState message="正在整理你的 BiteMap 個人頁面…" loading />;
 
   return (
     <main className="profile-page" aria-labelledby="profile-title">
       <header className="profile-page__header">
-        <div>
-          <p className="profile-eyebrow">BiteMap / Profile</p>
-          <h1 id="profile-title">個人頁面</h1>
-          <p>記錄我吃過的味道，也遇見更多喜歡的日常。</p>
-        </div>
+        <h1 id="profile-title">個人頁面</h1>
         <Link className="button button--secondary" href="/profile/settings">
           <IconSettings aria-hidden="true" />
           編輯個人資料
@@ -98,76 +179,125 @@ export function ProfilePage() {
               <span className="profile-empty-tag">新增幾個 Tag，讓大家更快認識你的口味。</span>
             )}
           </div>
-          <div className="profile-card__note">
-            <IconHeart aria-hidden="true" />
-            <span>在餐廳頁留下留言，慢慢建立自己的美食紀錄。</span>
-          </div>
         </aside>
 
         <section className="profile-content-card">
           <nav className="profile-tabs" aria-label="個人內容分類">
-            <span className="is-active">公開資料</span>
-            <span className="is-disabled">美食留言</span>
-            <span className="is-disabled">收藏</span>
+            <button
+              type="button"
+              className={tab === "overview" ? "is-active" : undefined}
+              onClick={() => setTab("overview")}
+              aria-current={tab === "overview" ? "page" : undefined}
+            >
+              <IconUser aria-hidden="true" /> 公開資料
+            </button>
+            <button
+              type="button"
+              className={tab === "reviews" ? "is-active" : undefined}
+              onClick={() => setTab("reviews")}
+              aria-current={tab === "reviews" ? "page" : undefined}
+            >
+              <IconMessageCircle aria-hidden="true" /> 美食留言
+              <span>{reviews.length}</span>
+            </button>
+            <button
+              type="button"
+              className={tab === "favorites" ? "is-active" : undefined}
+              onClick={() => setTab("favorites")}
+              aria-current={tab === "favorites" ? "page" : undefined}
+            >
+              <IconBookmark aria-hidden="true" /> 收藏
+              <span>{favorites.length}</span>
+            </button>
           </nav>
-          <div className="profile-content-grid">
-            <div className="profile-section-copy">
+
+          {tab === "overview" ? (
+            <div className="profile-content-grid">
+              <div className="profile-section-copy">
+                <div className="profile-section-title">
+                  <IconUser aria-hidden="true" />
+                  <h2>關於我</h2>
+                </div>
+                <p>
+                  {profile.bio || "在個人設定寫下你的口味，讓之後的約飯與社交入口更有你的樣子。"}
+                </p>
+                <Link className="text-link" href="/profile/settings">
+                  編輯公開資料 <IconChevronRight aria-hidden="true" />
+                </Link>
+              </div>
+            </div>
+          ) : null}
+
+          {tab === "reviews" ? (
+            <section className="profile-tab-panel" aria-labelledby="profile-reviews-title">
               <div className="profile-section-title">
-                <IconUser aria-hidden="true" />
-                <h2>關於我</h2>
+                <IconMessageCircle aria-hidden="true" />
+                <h2 id="profile-reviews-title">我的美食留言</h2>
+                <span>{reviews.length} 筆</span>
               </div>
-              <p>{profile.bio || "在個人設定寫下你的口味，讓之後的約飯與社交入口更有你的樣子。"}</p>
-              <Link className="text-link" href="/profile/settings">
-                編輯公開資料 <IconChevronRight aria-hidden="true" />
-              </Link>
-            </div>
-            <div className="profile-map-placeholder">
-              <div className="profile-section-title">
-                <IconMap2 aria-hidden="true" />
-                <h2>我的美食地圖</h2>
-              </div>
-              <div className="profile-map-placeholder__art" aria-hidden="true">
-                <span className="profile-map-pin profile-map-pin--one" />
-                <span className="profile-map-pin profile-map-pin--two" />
-                <span className="profile-map-pin profile-map-pin--three" />
-              </div>
-              <p>個人美食地圖的資料來源尚未定案，先保留這個入口。</p>
-            </div>
-          </div>
-          <div className="profile-favorites-section">
-            <div className="profile-section-title">
-              <IconBookmark aria-hidden="true" />
-              <h2>我的收藏</h2>
-              <span>{favorites.length} 間</span>
-            </div>
-            {favorites.length > 0 ? (
-              <div className="profile-favorites-list">
-                {favorites.map((restaurant) => (
-                  <Link
-                    className="profile-favorite-row"
-                    href={`/restaurants/${restaurant.id}`}
-                    key={restaurant.id}
-                  >
-                    <span
-                      className="profile-favorite-row__marker"
-                      style={{ backgroundColor: restaurant.primary_cuisine.color }}
-                    />
-                    <span>
-                      <strong>{restaurant.name}</strong>
-                      <small>
-                        {restaurant.primary_cuisine.display_name} · {restaurant.address}
-                      </small>
-                    </span>
-                    <IconChevronRight aria-hidden="true" />
+              {reviews.length > 0 ? (
+                <div className="profile-reviews-list">
+                  {reviews.map((review) => (
+                    <ProfileReviewRow key={review.id} review={review} />
+                  ))}
+                </div>
+              ) : (
+                <div className="profile-tab-empty">
+                  <IconMessageCircle aria-hidden="true" />
+                  <h3>還沒有美食留言</h3>
+                  <p>去餐廳頁寫下第一則留言，留下自己的再訪紀錄。</p>
+                  <Link className="button button--secondary" href="/">
+                    探索餐廳 <IconChevronRight aria-hidden="true" />
                   </Link>
-                ))}
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {tab === "favorites" ? (
+            <section className="profile-tab-panel" aria-labelledby="profile-favorites-title">
+              <div className="profile-section-title">
+                <IconBookmark aria-hidden="true" />
+                <h2 id="profile-favorites-title">我的收藏</h2>
+                <span>{favorites.length} 間</span>
               </div>
-            ) : (
-              <p className="profile-favorites-empty">收藏喜歡的店家，之後可以從這裡快速回來。</p>
-            )}
-          </div>
+              {favorites.length > 0 ? (
+                <div className="profile-favorites-list">
+                  {favorites.map((restaurant) => (
+                    <FavoriteRow key={restaurant.id} restaurant={restaurant} />
+                  ))}
+                </div>
+              ) : (
+                <div className="profile-tab-empty">
+                  <IconBookmark aria-hidden="true" />
+                  <h3>還沒有收藏餐廳</h3>
+                  <p>在餐廳頁按下收藏，喜歡的店家就會集中在這裡。</p>
+                  <Link className="button button--secondary" href="/">
+                    找一家喜歡的店 <IconChevronRight aria-hidden="true" />
+                  </Link>
+                </div>
+              )}
+            </section>
+          ) : null}
         </section>
       </section>
+
+      <div className="profile-account-actions">
+        <button
+          className="button button--danger-quiet"
+          type="button"
+          onClick={logout}
+          disabled={loggingOut}
+        >
+          <IconLogout aria-hidden="true" />
+          {loggingOut ? "登出中…" : "登出"}
+        </button>
+        {logoutError ? (
+          <p role="alert" className="profile-account-actions__error">
+            {logoutError}
+          </p>
+        ) : null}
+      </div>
     </main>
   );
 }

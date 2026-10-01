@@ -148,6 +148,15 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
                 == "https://example.test/map-photo.jpg"
             )
 
+            address_search = await client.get(
+                "/api/v1/map/search",
+                params={"q": "臺灣 320 桃園市中壢區測試路 1 號", "limit": 5},
+            )
+            assert address_search.status_code == 200
+            assert [item["name"] for item in address_search.json()["restaurants"]] == [
+                "範圍內已發布店家"
+            ]
+
             filtered = await client.get(
                 "/api/v1/map/restaurants",
                 params={**query, "price_ranges": "under_200"},
@@ -184,6 +193,15 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
                 )["photo_url"]
                 == "https://example.test/map-photo.jpg"
             )
+
+            address_search = await client.get(
+                "/api/v1/map/search",
+                params={"q": "臺灣 320 桃園市中壢區測試路 1 號", "limit": 5},
+            )
+            assert address_search.status_code == 200
+            assert [item["name"] for item in address_search.json()["restaurants"]] == [
+                "範圍內已發布店家"
+            ]
 
             location_response = await client.get(
                 "/api/v1/map/search",

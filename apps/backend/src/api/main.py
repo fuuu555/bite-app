@@ -1,9 +1,11 @@
 """FastAPI application entry point / FastAPI 應用程式進入點。"""
 
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import SQLAlchemyError
 
 from api.core.config import get_settings
@@ -11,6 +13,7 @@ from api.core.database import check_database
 from api.routers.admin import router as admin_router
 from api.routers.auth import router as auth_router
 from api.routers.explore import router as explore_router
+from api.routers.meals import router as meals_router
 from api.routers.public_map import router as public_map_router
 from api.routers.reviews import router as reviews_router
 
@@ -18,6 +21,8 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 app = FastAPI(title=settings.app_name, version="0.1.0")
+media_root = Path(__file__).resolve().parents[2] / "media"
+app.mount("/media", StaticFiles(directory=media_root), name="media")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -30,6 +35,7 @@ app.include_router(auth_router)
 app.include_router(public_map_router)
 app.include_router(explore_router)
 app.include_router(reviews_router)
+app.include_router(meals_router)
 
 
 @app.get("/health/live", tags=["health"])

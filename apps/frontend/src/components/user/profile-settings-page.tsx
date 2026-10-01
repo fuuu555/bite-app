@@ -1,20 +1,15 @@
 "use client";
 
-import {
-  IconArrowLeft,
-  IconCheck,
-  IconDeviceDesktop,
-  IconLogout,
-  IconPlus,
-  IconX,
-} from "@tabler/icons-react";
+import { IconArrowLeft, IconCheck, IconDeviceDesktop, IconPlus, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 
 import {
+  AvatarAsset,
   MyProfile,
   UserApiError,
+  fetchAvatarAssets,
   UserSession,
   suggestedProfileTags,
   userApi,
@@ -27,6 +22,8 @@ export function ProfileSettingsPage() {
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
+  const [avatarAssetId, setAvatarAssetId] = useState<string | null>(null);
+  const [avatarAssets, setAvatarAssets] = useState<AvatarAsset[]>([]);
   const [tags, setTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
   const [message, setMessage] = useState("");
@@ -48,12 +45,20 @@ export function ProfileSettingsPage() {
   }, [recentlyAddedTag]);
 
   useEffect(() => {
-    Promise.all([userApi<MyProfile>("/me/profile"), userApi<UserSession[]>("/me/sessions")])
-      .then(([loadedProfile, loadedSessions]) => {
+    Promise.all([
+      userApi<MyProfile>("/me/profile"),
+      userApi<UserSession[]>("/me/sessions"),
+      fetchAvatarAssets(),
+    ])
+      .then(([loadedProfile, loadedSessions, loadedAvatarAssets]) => {
         setProfile(loadedProfile);
         setDisplayName(loadedProfile.display_name);
         setBio(loadedProfile.bio ?? "");
-        setAvatarUrl(loadedProfile.avatar_url ?? "");
+        setAvatarUrl(
+          loadedProfile.avatar_source === "builtin" ? "" : (loadedProfile.avatar_url ?? ""),
+        );
+        setAvatarAssetId(loadedProfile.avatar_asset_id);
+        setAvatarAssets(loadedAvatarAssets);
         setTags(loadedProfile.tags.map((tag) => tag.display_name));
         setSessions(loadedSessions);
       })
@@ -112,6 +117,7 @@ export function ProfileSettingsPage() {
           display_name: displayName,
           bio: bio || null,
           avatar_url: avatarUrl || null,
+          avatar_asset_id: avatarAssetId,
           tags,
         }),
       });
@@ -127,11 +133,6 @@ export function ProfileSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function logout() {
-    await userApi<void>("/auth/session", { method: "DELETE" });
-    router.replace("/login");
   }
 
   async function revokeSession(sessionId: string) {
@@ -160,11 +161,7 @@ export function ProfileSettingsPage() {
         <Link className="back-link" href="/profile">
           <IconArrowLeft aria-hidden="true" /> 返回個人頁面
         </Link>
-        <div>
-          <p className="profile-eyebrow">BiteMap / Settings</p>
-          <h1 id="profile-settings-title">個人設定</h1>
-          <p>只在這裡編輯自己的公開資料與登入裝置。</p>
-        </div>
+        <h1 id="profile-settings-title">個人設定</h1>
       </header>
 
       <div className="profile-settings-layout">
@@ -199,11 +196,49 @@ export function ProfileSettingsPage() {
             <input
               type="url"
               value={avatarUrl}
-              onChange={(event) => setAvatarUrl(event.target.value)}
+              onChange={(event) => {
+                setAvatarUrl(event.target.value);
+                setAvatarAssetId(null);
+              }}
               placeholder="https://…"
             />
-            <span className="field-hint">圖片上傳功能完成前，請先使用安全的 HTTPS 圖片網址。</span>
+            <span className="field-hint">僅支援安全的 HTTPS 圖片網址。</span>
           </label>
+          <section className="profile-avatar-picker" aria-labelledby="profile-avatar-picker-title">
+            <div className="profile-avatar-picker__heading">
+              <div>
+                <span className="profile-settings-label" id="profile-avatar-picker-title">
+                  內建頭貼
+                </span>
+                <p>選擇 BiteMap 提供的頭貼。</p>
+              </div>
+              {avatarAssetId ? (
+                <span className="profile-avatar-picker__selected">已選擇</span>
+              ) : null}
+            </div>
+            {avatarAssets.length > 0 ? (
+              <div className="profile-avatar-options">
+                {avatarAssets.map((asset) => (
+                  <button
+                    type="button"
+                    key={asset.id}
+                    className={avatarAssetId === asset.id ? "is-selected" : undefined}
+                    onClick={() => {
+                      setAvatarAssetId(asset.id);
+                      setAvatarUrl("");
+                    }}
+                    aria-pressed={avatarAssetId === asset.id}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={asset.url} alt="" />
+                    <span>{asset.display_name}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="profile-avatar-picker__empty">管理員尚未提供內建頭貼。</p>
+            )}
+          </section>
           <div className="profile-settings-tags">
             <div className="profile-tag-section-heading">
               <div>
@@ -345,13 +380,6 @@ export function ProfileSettingsPage() {
               ))}
             </ul>
           </section>
-          <button
-            className="button button--danger-quiet profile-logout"
-            type="button"
-            onClick={logout}
-          >
-            <IconLogout aria-hidden="true" /> 登出目前帳號
-          </button>
         </aside>
       </div>
     </main>

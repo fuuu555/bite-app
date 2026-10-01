@@ -14,10 +14,18 @@ from sqlalchemy.orm import selectinload
 
 from api.core.database import get_session
 from api.core.security import UserSessionContext, hash_session_token, require_user
-from api.domain.models import Restaurant, RestaurantFavorite, RestaurantReview, User, UserSession
+from api.domain.models import (
+    Restaurant,
+    RestaurantFavorite,
+    RestaurantReview,
+    User,
+    UserProfile,
+    UserSession,
+)
 from api.domain.schemas import (
     FavoriteListResponse,
     FavoriteStateResponse,
+    ProfileReviewListResponse,
     ReviewCreateRequest,
     ReviewLikeResponse,
     ReviewListResponse,
@@ -35,6 +43,7 @@ from api.services.reviews import (
     get_timeline,
     has_review_history,
     is_favorited,
+    list_profile_reviews,
     list_review_reasons,
     list_reviews,
     reason_response,
@@ -80,7 +89,9 @@ async def _require_review_owner(
     review = await session.scalar(
         select(RestaurantReview)
         .options(
-            selectinload(RestaurantReview.user).selectinload(User.profile),
+            selectinload(RestaurantReview.user)
+            .selectinload(User.profile)
+            .options(selectinload(UserProfile.avatar_asset)),
             selectinload(RestaurantReview.reasons),
         )
         .where(RestaurantReview.id == review_id)
@@ -308,11 +319,21 @@ async def read_my_favorites(
     )
     return FavoriteListResponse(
         restaurants=[
-            await favorite_card(restaurant, favorite.created_at)
-            for favorite, restaurant in rows
+            await favorite_card(restaurant, favorite.created_at) for favorite, restaurant in rows
         ],
         total=int(total or 0),
     )
+
+
+@router.get("/me/reviews", response_model=ProfileReviewListResponse)
+async def read_my_reviews(
+    session: SessionDep,
+    current: UserDep,
+    limit: Annotated[int, Query(ge=1, le=50)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ProfileReviewListResponse:
+    reviews, total = await list_profile_reviews(session, current.user.id, limit, offset)
+    return ProfileReviewListResponse(reviews=reviews, total=total)
 
 
 @router.post("/restaurants/{restaurant_id}/favorite", status_code=status.HTTP_204_NO_CONTENT)

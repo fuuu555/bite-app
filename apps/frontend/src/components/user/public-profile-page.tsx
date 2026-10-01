@@ -1,6 +1,6 @@
 "use client";
 
-import { IconArrowLeft, IconMap2, IconTag } from "@tabler/icons-react";
+import { IconArrowLeft, IconTag } from "@tabler/icons-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -62,7 +62,6 @@ export function PublicProfilePage({ userId }: { userId: string }) {
             </span>
           )}
           <div>
-            <p className="profile-eyebrow">BiteMap / Public profile</p>
             <h1 id="public-profile-title">{profile.display_name}</h1>
             <p>{profile.bio || "這位 BiteMap 使用者還沒有寫下自我介紹。"}</p>
           </div>
@@ -73,13 +72,6 @@ export function PublicProfilePage({ userId }: { userId: string }) {
               <IconTag aria-hidden="true" /> {tag.display_name}
             </span>
           ))}
-        </div>
-        <div className="public-profile-map-note">
-          <IconMap2 aria-hidden="true" />
-          <div>
-            <strong>公開美食內容</strong>
-            <p>個人美食地圖的資料來源尚未定案，相關內容會在後續階段加入。</p>
-          </div>
         </div>
       </section>
     </main>

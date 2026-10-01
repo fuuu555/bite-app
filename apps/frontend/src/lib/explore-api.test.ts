@@ -2,10 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   ExploreApiError,
+  FALLBACK_EXPLORE_LOCATION,
   explorePageSearchParams,
   exploreSearchParams,
   exploreUrlState,
   fetchExploreRestaurant,
+  formatExploreDistance,
   type ExploreFilters,
 } from "./explore-api";
 
@@ -65,5 +67,10 @@ describe("explore API client", () => {
     await expect(fetchExploreRestaurant("missing-id")).rejects.toEqual(
       expect.objectContaining<Partial<ExploreApiError>>({ status: 404 }),
     );
+  });
+
+  it("does not render a distance label before a location is available", () => {
+    expect(formatExploreDistance(null)).toBeNull();
+    expect(FALLBACK_EXPLORE_LOCATION).toEqual({ latitude: 24.9571129, longitude: 121.2425529 });
   });
 });

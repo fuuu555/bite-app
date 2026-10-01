@@ -33,3 +33,7 @@ Thumbs.db
 # Local database volumes / logs
 *.log
 postgres-data/
+
+# Local avatar uploads; keep the directory but never commit uploaded binaries.
+apps/backend/media/avatars/*
+!apps/backend/media/avatars/.gitkeep

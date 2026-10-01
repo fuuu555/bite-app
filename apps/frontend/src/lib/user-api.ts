@@ -18,7 +18,20 @@ export type Profile = {
   display_name: string;
   bio: string | null;
   avatar_url: string | null;
+  avatar_source: "builtin" | "google" | "url";
+  avatar_asset_id: string | null;
   tags: ProfileTag[];
+};
+
+export type AvatarAsset = {
+  id: string;
+  display_name: string;
+  url: string;
+  mime_type: string;
+  file_size: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type MyProfile = Profile & {
@@ -62,6 +75,10 @@ export async function userApi<T>(path: string, init?: RequestInit): Promise<T> {
     return undefined as T;
   }
   return (await response.json()) as T;
+}
+
+export function fetchAvatarAssets() {
+  return userApi<AvatarAsset[]>("/avatar-assets");
 }
 
 export const suggestedProfileTags = [

@@ -8,11 +8,11 @@ import {
   IconClock,
   IconChevronLeft,
   IconChevronRight,
+  IconCheck,
   IconExternalLink,
   IconMap2,
   IconMapPin,
   IconPhoto,
-  IconShare3,
   IconShieldCheck,
   IconStar,
   IconToolsKitchen3,
@@ -23,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   ExploreApiError,
+  FALLBACK_EXPLORE_LOCATION,
   distanceBetweenLocations,
   formatExploreDistance,
   type ExploreLocation,
@@ -33,6 +34,7 @@ import {
 import { priceRangeLabels } from "@/lib/public-map-api";
 import { fetchFavoriteState, setFavorite } from "@/lib/reviews-api";
 import { RestaurantReviewsPanel } from "@/components/user/restaurant-reviews-panel";
+import { addRestaurantToMealDraft, useMealDraft } from "@/lib/meal-draft";
 
 function RestaurantPhotoLink({
   photo,
@@ -176,6 +178,8 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
   const [contentVersion, setContentVersion] = useState(0);
   const [favorited, setFavorited] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [draftNotice, setDraftNotice] = useState("");
+  const draft = useMealDraft();
   const [loadResult, setLoadResult] = useState<{
     restaurantId: string;
     restaurant: ExploreRestaurantDetail | null;
@@ -185,19 +189,30 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
   useEffect(() => {
     // Location is optional enrichment; denying permission must not block restaurant details.
     // 定位只用來補充距離，使用者拒絕權限時仍須正常顯示餐廳資料。
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      const timeoutId = window.setTimeout(() => setLocation(FALLBACK_EXPLORE_LOCATION), 0);
+      return () => window.clearTimeout(timeoutId);
+    }
     let active = true;
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         if (active) setLocation({ latitude: coords.latitude, longitude: coords.longitude });
       },
-      () => undefined,
+      () => {
+        if (active) setLocation(FALLBACK_EXPLORE_LOCATION);
+      },
       { enableHighAccuracy: false, maximumAge: 300_000, timeout: 10_000 },
     );
     return () => {
       active = false;
     };
   }, [restaurantId]);
+
+  useEffect(() => {
+    if (!draftNotice) return;
+    const timer = window.setTimeout(() => setDraftNotice(""), 1600);
+    return () => window.clearTimeout(timer);
+  }, [draftNotice]);
 
   useEffect(() => {
     // Abort the previous detail request when the dynamic route changes.
@@ -264,6 +279,7 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
           longitude: restaurant.longitude,
         })
       : restaurant.distance_meters;
+  const distanceLabel = formatExploreDistance(distanceMeters);
   const hasVisitIntentData = restaurant.app.revisit_rate !== null;
   const priceLabel = priceRangeLabels[restaurant.price_range];
   const menuLink = restaurant.menu.url ?? restaurant.menus[0]?.url ?? null;
@@ -288,6 +304,32 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
       setFavoriteBusy(false);
     }
   };
+
+  const addToDraft = () => {
+    const result = addRestaurantToMealDraft({
+      id: restaurant.id,
+      name: restaurant.name,
+      address: restaurant.address,
+      cuisine_name: restaurant.primary_cuisine.display_name,
+      photo_url: restaurant.photo_url,
+    });
+    if (!result.persisted) {
+      setDraftNotice("已暫存於目前頁面，但瀏覽器無法保留這份草稿。請直接返回填寫。 ");
+      return;
+    }
+    setDraftNotice(
+      result.outcome === "replaced"
+        ? "已更換草稿餐廳"
+        : result.outcome === "exists"
+          ? "這家店已在草稿中"
+          : result.outcome === "full"
+            ? "候選已選滿三家"
+            : "已加入約飯草稿",
+    );
+  };
+
+  const isDraftCandidate = draft?.candidates.some((candidate) => candidate.id === restaurant.id);
+  const draftIsFull = draft?.restaurantMode === "vote" && draft.candidates.length >= 3;
 
   return (
     <main className="restaurant-detail-page restaurant-detail-v3">
@@ -331,10 +373,12 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
           <section className="restaurant-detail-v3__quick" aria-labelledby="quick-info-title">
             <h2 id="quick-info-title">快速資訊</h2>
             <dl>
-              <div>
-                <dt>距離</dt>
-                <dd>{formatExploreDistance(distanceMeters)}</dd>
-              </div>
+              {distanceLabel ? (
+                <div>
+                  <dt>距離</dt>
+                  <dd>{distanceLabel}</dd>
+                </div>
+              ) : null}
               <div>
                 <dt>價格</dt>
                 <dd>{priceLabel}</dd>
@@ -379,18 +423,41 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
                 餐廳菜單
               </button>
             )}
-            <button type="button" disabled className="is-primary">
-              <IconUserPlus aria-hidden="true" />
-              發起約飯
-            </button>
-            <button type="button" disabled>
-              <IconShare3 aria-hidden="true" />
-              轉貼朋友
-            </button>
+            {draft ? (
+              <button
+                type="button"
+                className={isDraftCandidate ? "is-primary is-active" : "is-primary"}
+                disabled={Boolean(isDraftCandidate || draftIsFull)}
+                onClick={addToDraft}
+              >
+                {isDraftCandidate ? (
+                  <IconCheck aria-hidden="true" />
+                ) : (
+                  <IconUserPlus aria-hidden="true" />
+                )}
+                {isDraftCandidate
+                  ? "已在約飯草稿"
+                  : draftIsFull
+                    ? "候選已選滿"
+                    : draft.restaurantMode === "direct"
+                      ? "選為餐廳"
+                      : "加入候選"}
+              </button>
+            ) : (
+              <Link
+                className="is-primary"
+                href={`/meals?restaurantId=${encodeURIComponent(restaurant.id)}`}
+              >
+                <IconUserPlus aria-hidden="true" />
+                發起約飯
+              </Link>
+            )}
           </nav>
-          <p id="future-actions-note" className="restaurant-detail-v3__future-note">
-            約飯與分享將在後續階段開放
-          </p>
+          {draftNotice ? (
+            <p className="restaurant-detail-v3__future-note" role="status">
+              {draftNotice}
+            </p>
+          ) : null}
         </section>
       </article>
 
@@ -438,11 +505,11 @@ export function RestaurantDetailPage({ restaurantId }: { restaurantId: string })
           <dl>
             <div>
               <dt>Google 評分</dt>
-              <dd>{restaurant.google.rating ?? "尚未接入"}</dd>
+              <dd>{restaurant.google.rating ?? "暫無資料"}</dd>
             </div>
             <div>
               <dt>評論數</dt>
-              <dd>{restaurant.google.review_count ?? "尚未接入"}</dd>
+              <dd>{restaurant.google.review_count ?? "暫無資料"}</dd>
             </div>
           </dl>
           <p>外部評分與 BiteMap 實訪意願分開呈現。</p>

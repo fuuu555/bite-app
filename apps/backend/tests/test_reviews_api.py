@@ -111,18 +111,14 @@ async def test_review_timeline_soft_delete_and_latest_stats() -> None:
             assert second.json()["entry_number"] == 2
             assert second.json()["is_revisit"] is True
 
-            current = await user_client.get(
-                f"/api/v1/explore/restaurants/{restaurant_id}/reviews"
-            )
+            current = await user_client.get(f"/api/v1/explore/restaurants/{restaurant_id}/reviews")
             assert current.status_code == 200
             assert current.json()["has_current_user_review"] is True
             assert len(current.json()["reviews"]) == 1
             assert current.json()["reviews"][0]["id"] == second_review_id
             assert current.json()["reviews"][0]["revisit_count"] == 2
 
-            detail = await user_client.get(
-                f"/api/v1/explore/restaurants/{restaurant_id}"
-            )
+            detail = await user_client.get(f"/api/v1/explore/restaurants/{restaurant_id}")
             assert detail.json()["app"]["rating_count"] == 1
             assert detail.json()["app"]["neutral_count"] == 1
             assert detail.json()["app"]["will_return_count"] == 0
@@ -156,9 +152,7 @@ async def test_review_timeline_soft_delete_and_latest_stats() -> None:
             assert after_delete.status_code == 200
             assert after_delete.json()["reviews"][0]["id"] == first_review_id
 
-            restored_stats = await user_client.get(
-                f"/api/v1/explore/restaurants/{restaurant_id}"
-            )
+            restored_stats = await user_client.get(f"/api/v1/explore/restaurants/{restaurant_id}")
             assert restored_stats.json()["app"]["will_return_count"] == 1
             assert restored_stats.json()["app"]["neutral_count"] == 0
 
@@ -175,21 +169,20 @@ async def test_review_timeline_soft_delete_and_latest_stats() -> None:
             liked = await user_client.post(f"/api/v1/reviews/{first_review_id}/like")
             assert liked.status_code == 200
             assert liked.json() == {"liked": True, "like_count": 1}
-            repeated_like = await user_client.post(
-                f"/api/v1/reviews/{first_review_id}/like"
-            )
+            repeated_like = await user_client.post(f"/api/v1/reviews/{first_review_id}/like")
             assert repeated_like.status_code == 200
             assert repeated_like.json()["like_count"] == 1
 
-            favorite = await user_client.post(
-                f"/api/v1/restaurants/{restaurant_id}/favorite"
-            )
+            favorite = await user_client.post(f"/api/v1/restaurants/{restaurant_id}/favorite")
             assert favorite.status_code == 204
             favorites = await user_client.get("/api/v1/me/favorites")
             assert favorites.status_code == 200
-            assert [item["id"] for item in favorites.json()["restaurants"]] == [
-                str(restaurant_id)
-            ]
+            assert [item["id"] for item in favorites.json()["restaurants"]] == [str(restaurant_id)]
+
+            profile_reviews = await user_client.get("/api/v1/me/reviews")
+            assert profile_reviews.status_code == 200
+            assert profile_reviews.json()["total"] == 1
+            assert profile_reviews.json()["reviews"][0]["restaurant_id"] == str(restaurant_id)
 
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://testserver"

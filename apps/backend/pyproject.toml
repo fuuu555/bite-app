@@ -12,6 +12,7 @@ dependencies = [
     "geoalchemy2>=0.20.0",
     "httpx>=0.28.1",
     "pydantic-settings>=2.10.1",
+    "python-multipart>=0.0.20",
     "sqlalchemy[asyncio]>=2.0.43",
     "uvicorn[standard]>=0.36.0",
 ]

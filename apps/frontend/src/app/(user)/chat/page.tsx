@@ -1,5 +1,5 @@
 import { ComingSoon } from "@/components/user/coming-soon";
 
 export default function ChatPage() {
-  return <ComingSoon title="聊天室準備中" description="私訊、好友與約飯聊天室會在後續階段加入。" />;
+  return <ComingSoon title="聊天室" description="聊天室尚未開放。" />;
 }

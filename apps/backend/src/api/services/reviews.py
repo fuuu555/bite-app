@@ -19,11 +19,13 @@ from api.domain.models import (
     ReviewLike,
     ReviewReason,
     User,
+    UserProfile,
 )
 from api.domain.schemas import (
     ExploreAppSignalsResponse,
     FavoriteRestaurantResponse,
     MapCuisineResponse,
+    ProfileReviewResponse,
     ReviewCreateRequest,
     ReviewLikeResponse,
     ReviewReasonResponse,
@@ -32,6 +34,7 @@ from api.domain.schemas import (
     ReviewStatusFilter,
     ReviewUpdateRequest,
 )
+from api.services.profile import avatar_url_for_profile
 
 
 async def get_restaurant_app_stats(
@@ -190,7 +193,9 @@ async def get_review_for_response(
     review = await session.scalar(
         select(RestaurantReview)
         .options(
-            selectinload(RestaurantReview.user).selectinload(User.profile),
+            selectinload(RestaurantReview.user)
+            .selectinload(User.profile)
+            .options(selectinload(UserProfile.avatar_asset)),
             selectinload(RestaurantReview.reasons),
         )
         .where(RestaurantReview.id == review_id)
@@ -214,7 +219,9 @@ async def list_reviews(
         select(RestaurantReview)
         .join(latest, latest.c.review_id == RestaurantReview.id)
         .options(
-            selectinload(RestaurantReview.user).selectinload(User.profile),
+            selectinload(RestaurantReview.user)
+            .selectinload(User.profile)
+            .options(selectinload(UserProfile.avatar_asset)),
             selectinload(RestaurantReview.reasons),
         )
         .where(latest.c.row_number == 1)
@@ -280,6 +287,76 @@ async def has_review_history(
     )
 
 
+async def list_profile_reviews(
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    limit: int,
+    offset: int,
+) -> tuple[list[ProfileReviewResponse], int]:
+    """List the current user's visible review entries / 列出使用者可見留言紀錄。"""
+    statement = (
+        select(RestaurantReview)
+        .join(Restaurant, Restaurant.id == RestaurantReview.restaurant_id)
+        .options(
+            selectinload(RestaurantReview.reasons),
+            selectinload(RestaurantReview.restaurant).selectinload(Restaurant.primary_cuisine),
+            selectinload(RestaurantReview.restaurant).selectinload(Restaurant.photos),
+        )
+        .where(
+            RestaurantReview.user_id == user_id,
+            RestaurantReview.deleted_at.is_(None),
+            Restaurant.status == "published",
+        )
+        .order_by(RestaurantReview.updated_at.desc(), RestaurantReview.id.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    entries = list((await session.execute(statement)).scalars())
+    total = await session.scalar(
+        select(func.count(RestaurantReview.id))
+        .join(Restaurant, Restaurant.id == RestaurantReview.restaurant_id)
+        .where(
+            RestaurantReview.user_id == user_id,
+            RestaurantReview.deleted_at.is_(None),
+            Restaurant.status == "published",
+        )
+    )
+    thread_ids = [entry.thread_id for entry in entries]
+    revisit_counts: dict[uuid.UUID, int] = {}
+    if thread_ids:
+        rows = await session.execute(
+            select(RestaurantReview.thread_id, func.count(RestaurantReview.id))
+            .where(
+                RestaurantReview.thread_id.in_(thread_ids),
+                RestaurantReview.deleted_at.is_(None),
+            )
+            .group_by(RestaurantReview.thread_id)
+        )
+        revisit_counts = {thread_id: int(count) for thread_id, count in rows.all()}
+
+    responses = [
+        ProfileReviewResponse(
+            id=entry.id,
+            restaurant_id=entry.restaurant_id,
+            restaurant_name=entry.restaurant.name,
+            restaurant_photo_url=entry.restaurant.photos[0].url
+            if entry.restaurant.photos
+            else None,
+            entry_number=entry.entry_number,
+            is_revisit=entry.entry_number > 1,
+            content=entry.content,
+            revisit_status=entry.revisit_status,  # type: ignore[arg-type]
+            reasons=[reason_response(reason) for reason in entry.reasons],
+            created_at=entry.created_at,
+            updated_at=entry.updated_at,
+            is_edited=entry.updated_at > entry.created_at,
+            revisit_count=revisit_counts.get(entry.thread_id, 1),
+        )
+        for entry in entries
+    ]
+    return responses, int(total or 0)
+
+
 async def count_revisits(
     session: AsyncSession,
     restaurant_id: uuid.UUID,
@@ -314,7 +391,9 @@ async def get_timeline(
     result = await session.execute(
         select(RestaurantReview)
         .options(
-            selectinload(RestaurantReview.user).selectinload(User.profile),
+            selectinload(RestaurantReview.user)
+            .selectinload(User.profile)
+            .options(selectinload(UserProfile.avatar_asset)),
             selectinload(RestaurantReview.reasons),
         )
         .where(
@@ -400,7 +479,7 @@ async def review_response(
         is_revisit=review.entry_number > 1,
         author_id=review.user_id,
         author_display_name=profile.display_name if profile else "BiteMap 使用者",
-        author_avatar_url=profile.avatar_url if profile else None,
+        author_avatar_url=avatar_url_for_profile(profile) if profile else None,
         content=review.content,
         revisit_status=review.revisit_status,  # type: ignore[arg-type]
         reasons=[reason_response(reason) for reason in review.reasons],
