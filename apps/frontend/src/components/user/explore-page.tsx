@@ -168,13 +168,10 @@ function ExplorePageContent({
     if (!filters.distanceKm || location) return;
 
     if (!navigator.geolocation) {
-      const timeoutId = window.setTimeout(
-        () => {
-          setLocation(FALLBACK_EXPLORE_LOCATION);
-          setError("此瀏覽器不支援定位，已改用中原大學測試店位置計算距離。 ");
-        },
-        0,
-      );
+      const timeoutId = window.setTimeout(() => {
+        setLocation(FALLBACK_EXPLORE_LOCATION);
+        setError("此瀏覽器不支援定位，已改用中原大學測試店位置計算距離。 ");
+      }, 0);
       return () => window.clearTimeout(timeoutId);
     }
 
