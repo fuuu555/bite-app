@@ -207,6 +207,26 @@ def message_response(message: Message, current_user_id: uuid.UUID | None = None)
     )
 
 
+async def _refresh_message_author_profiles(session: AsyncSession, message: Message) -> None:
+    """Populate author profiles before serializing a post-commit message action.
+
+    The authenticated sender can already exist in the session identity map without its
+    profile relationship loaded. Refresh it explicitly so response serialization never
+    attempts async lazy loading / 明確載入作者資料，避免提交後序列化觸發非同步 lazy load。
+    """
+    author_ids = {message.sender_user_id}
+    if message.reply_to is not None:
+        author_ids.add(message.reply_to.sender_user_id)
+    (
+        await session.scalars(
+            select(User)
+            .execution_options(populate_existing=True)
+            .options(selectinload(User.profile).selectinload(UserProfile.avatar_asset))
+            .where(User.id.in_(author_ids))
+        )
+    ).all()
+
+
 def _encode_cursor(message: Message) -> str:
     raw = f"{message.created_at.isoformat()}|{message.id}".encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
@@ -835,6 +855,7 @@ async def pin_message(
     )
     if refreshed is None:
         raise RuntimeError("pinned message could not be loaded")
+    await _refresh_message_author_profiles(session, refreshed)
     return message_response(refreshed, user_id)
 
 
@@ -860,6 +881,7 @@ async def unpin_message(
     )
     if refreshed is None:
         raise RuntimeError("unpinned message could not be loaded")
+    await _refresh_message_author_profiles(session, refreshed)
     return message_response(refreshed, user_id)
 
 
