@@ -70,6 +70,27 @@ class ProfileTagResponse(BaseModel):
     is_system: bool
 
 
+RelationshipStatus = Literal[
+    "self",
+    "none",
+    "friends",
+    "outgoing_pending",
+    "incoming_pending",
+    "blocked_by_me",
+    "blocked_me",
+]
+
+
+class RelationshipStateResponse(BaseModel):
+    status: RelationshipStatus
+    request_id: uuid.UUID | None = None
+    conversation_id: uuid.UUID | None = None
+    can_message: bool = False
+    can_add_friend: bool = False
+    can_accept_friend_request: bool = False
+    follow_status: Literal["none", "following", "followed_by", "mutual"] = "none"
+
+
 class PublicProfileResponse(BaseModel):
     id: uuid.UUID
     display_name: str
@@ -78,10 +99,30 @@ class PublicProfileResponse(BaseModel):
     avatar_source: Literal["builtin", "google", "url"]
     avatar_asset_id: uuid.UUID | None
     tags: list[ProfileTagResponse]
+    accept_stranger_messages: bool = True
+    relationship: RelationshipStateResponse | None = None
 
 
 class MyProfileResponse(PublicProfileResponse):
     email: str
+    friend_code: str = Field(min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
+
+
+class FriendSummaryResponse(BaseModel):
+    """Minimal profile data shown in the friends hub / 好友頁顯示的最小個人資料。"""
+
+    id: uuid.UUID
+    display_name: str
+    avatar_url: str | None
+    avatar_source: Literal["builtin", "google", "url"]
+    avatar_asset_id: uuid.UUID | None
+    conversation_id: uuid.UUID | None = None
+
+
+class FriendLookupResponse(FriendSummaryResponse):
+    """A friend-code result with current relationship state / 好友碼查詢結果。"""
+
+    relationship: RelationshipStateResponse
 
 
 class UserProfileUpdate(BaseModel):
@@ -90,6 +131,7 @@ class UserProfileUpdate(BaseModel):
     avatar_url: str | None = Field(default=None, max_length=1000, pattern=r"^https?://[^\s]+$")
     avatar_asset_id: uuid.UUID | None = None
     tags: list[str] | None = Field(default=None, max_length=8)
+    accept_stranger_messages: bool | None = None
 
     @field_validator("display_name", mode="before")
     @classmethod
@@ -118,6 +160,36 @@ class UserProfileUpdate(BaseModel):
             raise ValueError("tags must be a list")
         normalized = [re.sub(r"\s+", " ", item).strip() for item in value]
         return list(dict.fromkeys(item for item in normalized if item))
+
+
+FriendRequestStatus = Literal["pending", "accepted", "rejected", "cancelled"]
+
+
+class FriendRequestResponse(BaseModel):
+    id: uuid.UUID
+    requester_id: uuid.UUID
+    recipient_id: uuid.UUID
+    status: FriendRequestStatus
+    created_at: datetime
+    responded_at: datetime | None = None
+
+
+class FriendRequestCreateRequest(BaseModel):
+    user_id: uuid.UUID
+
+
+class SocialActionResponse(BaseModel):
+    relationship: RelationshipStateResponse
+    request: FriendRequestResponse | None = None
+
+
+class FollowSummaryResponse(BaseModel):
+    id: uuid.UUID
+    display_name: str
+    avatar_url: str | None
+    avatar_source: Literal["builtin", "google", "url"]
+    avatar_asset_id: uuid.UUID | None
+    created_at: datetime
 
 
 class UserSessionResponse(BaseModel):
@@ -304,21 +376,10 @@ class MapRestaurantsResponse(BaseModel):
     restaurants: list[MapRestaurantResponse]
 
 
-class MapSearchLocationResponse(BaseModel):
-    """External location candidate / 外部地區定位候選。"""
-
-    label: str
-    region: str | None = None
-    latitude: float
-    longitude: float
-    source: str
-
-
 class MapSearchResponse(BaseModel):
-    """Grouped map search results / 分組的地圖搜尋結果。"""
+    """Published restaurant search results / 已發布店家搜尋結果。"""
 
-    status: Literal["ok", "partial"]
-    locations: list[MapSearchLocationResponse]
+    status: Literal["ok"]
     restaurants: list[MapRestaurantResponse]
 
 
@@ -668,3 +729,75 @@ class MealResponse(BaseModel):
 
 class MealListResponse(BaseModel):
     meals: list[MealResponse]
+
+
+class ChatAuthorResponse(BaseModel):
+    user_id: uuid.UUID
+    display_name: str
+    avatar_url: str | None
+
+
+class MessageReplyResponse(BaseModel):
+    id: uuid.UUID
+    sender: ChatAuthorResponse
+    content: str
+    is_recalled: bool = False
+
+
+class MessageResponse(BaseModel):
+    id: uuid.UUID
+    conversation_id: uuid.UUID
+    conversation_kind: Literal["meal", "direct"]
+    meal_id: uuid.UUID | None = None
+    sender: ChatAuthorResponse
+    content: str
+    created_at: datetime
+    is_recalled: bool = False
+    recalled_at: datetime | None = None
+    can_recall: bool = False
+    is_mine: bool = False
+    reply_to: MessageReplyResponse | None = None
+    is_pinned: bool = False
+    pinned_at: datetime | None = None
+    can_pin: bool = False
+
+
+class ConversationReadRequest(BaseModel):
+    message_id: uuid.UUID
+
+
+class ConversationReadResponse(BaseModel):
+    conversation_id: uuid.UUID
+    meal_id: uuid.UUID | None = None
+    message_id: uuid.UUID
+    read_at: datetime
+
+
+class MessagePageResponse(BaseModel):
+    messages: list[MessageResponse]
+    next_cursor: str | None
+
+
+class PinnedMessagesResponse(BaseModel):
+    messages: list[MessageResponse]
+
+
+class ConversationResponse(BaseModel):
+    conversation_id: uuid.UUID
+    kind: Literal["meal", "direct"]
+    category: Literal["meal", "direct", "friends"]
+    meal_id: uuid.UUID | None = None
+    meal_title: str | None = None
+    meal_status: MealStatus | None = None
+    other_user: ChatAuthorResponse | None = None
+    latest_message: MessageResponse | None
+    unread_count: int = 0
+
+
+class DirectConversationResponse(BaseModel):
+    conversation_id: uuid.UUID
+    other_user: ChatAuthorResponse
+
+
+class ConversationListResponse(BaseModel):
+    conversations: list[ConversationResponse]

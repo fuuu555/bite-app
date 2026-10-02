@@ -1,4 +1,4 @@
-import { PublicMapPage } from "@/components/map/public-map-page";
+import { PublicMapPage } from "@/features/map/components/public-map-page";
 
 export default function MapPage() {
   return <PublicMapPage />;

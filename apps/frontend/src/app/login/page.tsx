@@ -1,4 +1,4 @@
-import { UserAuthForm } from "@/components/user/user-auth-form";
+import { UserAuthForm } from "@/shared/auth/user-auth-form";
 
 export default async function LoginPage({
   searchParams,

@@ -55,14 +55,16 @@ winget install --id Docker.DockerDesktop --exact
 ```powershell
 Copy-Item .env.example .env
 pnpm install
-docker compose pull db
+docker compose pull db redis
 pnpm db:up
 pnpm db:migrate
 ```
 
 `.env.example` 會提交到 Git，提供變數名稱與本機開發預設值；`.env` 是由它複製出的本機設定，不提交到 Git。範例中的帳號與密碼只適用於本機 Docker，不可用於正式環境。
 
-`docker compose pull db` 會下載 PostGIS image；`pnpm db:up` 會建立並啟動資料庫容器，不需要手動複製 Docker 資料庫。
+`docker compose pull db redis` 會下載 PostGIS 與 Redis image；`pnpm db:up` 會建立並啟動兩個容器，不需要手動複製 Docker 資料庫。Redis 用於 WebSocket 跨 API instance 的即時事件協調，聊天訊息仍永久寫入 PostgreSQL。
+
+前端預設透過 `NEXT_PUBLIC_WS_URL=ws://localhost:8000/api/v1/ws` 連接共用 WebSocket。部署到 HTTPS 環境時應改為同站或 API 網域的 `wss://` 位址，並把前端 origin 加入 `API_CORS_ORIGINS`；WebSocket 使用既有 HttpOnly 使用者 session cookie 驗證，不在 URL 帶 Token。
 
 ### 5. 啟動網站
 
@@ -209,12 +211,21 @@ bite/
 │   ├── frontend/            # Next.js Web / PWA
 │   │   ├── public/          # MapLibre worker 與靜態資源
 │   │   └── src/
-│   │       ├── app/         # 使用者端、管理員端與路由頁面
-│   │       ├── components/
-│   │       │   ├── admin/   # 管理後台、料理與店家編輯
-│   │       │   ├── map/     # 地圖、搜尋控制與店家預覽
-│   │       │   └── user/    # 登入、探索、個人頁、約飯與使用者導覽
-│   │       ├── lib/         # API clients、型別與共用邏輯
+│   │       ├── app/         # Next.js 路由；只負責頁面入口與組合
+│   │       │   ├── (user)/  # 探索、地圖、約飯、聊天室、個人頁與店家頁
+│   │       │   └── admin/   # 管理員登入與管理後台路由
+│   │       ├── features/    # 依產品功能分組的 API、元件與工具
+│   │       │   ├── home/    # 探索首頁與探索 API
+│   │       │   ├── map/     # 公開地圖、搜尋、篩選與店家預覽
+│   │       │   ├── meals/   # 約飯列表、建立、詳情、投票與飯局聊天
+│   │       │   ├── chat/    # 私聊、好友聊與聊天室訊息互動
+│   │       │   ├── profile/ # 個人頁、好友社交中心與公開個人頁
+│   │       │   ├── restaurants/ # 店家詳情與留言／再訪
+│   │       │   └── admin/   # 管理員 API、店家、料理與頭貼管理
+│   │       ├── shared/      # 跨功能共用，不放單一產品功能
+│   │       │   ├── auth/   # 使用者 API、登入門禁與登入表單
+│   │       │   ├── realtime/ # WebSocket／Redis 即時連線與事件
+│   │       │   └── ui/     # AppConfirmDialog、Footer 等共用 UI
 │   │       └── styles/      # Design tokens、Web 與 Mobile 樣式
 │   └── backend/             # FastAPI modular monolith
 │       ├── migrations/      # Alembic migration
@@ -242,3 +253,24 @@ bite/
 ├── pnpm-workspace.yaml
 └── README.MD
 ```
+
+### 前端檔案怎麼找
+
+前端採「路由薄、功能厚、共用獨立」的分層方式：
+
+1. **先找網址對應的 route**：從 `apps/frontend/src/app/` 開始。這裡的 `page.tsx` 應只負責載入與組合功能元件，不放完整商業邏輯。
+2. **再找功能元件**：依頁面所屬功能進入 `apps/frontend/src/features/<feature>/components/`，例如聊天室使用 `features/chat`，約飯使用 `features/meals`。
+3. **需要呼叫 API 時**：先看同一個 feature 下的 `api/`；OpenAPI 產生的共用型別與 client 在 `packages/api-client/`。
+4. **需要跨功能共用時**：放到 `apps/frontend/src/shared/`，目前分為 `auth`、`realtime`、`ui`。只有至少兩個功能共同使用的程式才放這裡。
+5. **需要格式化或樣式時**：全域樣式在 `apps/frontend/src/styles/`；單一元件的樣式優先留在元件本身或既有 design token 範圍內。
+
+功能資料夾的常見責任如下：
+
+| 目錄                            | 放什麼                                 | 不放什麼                         |
+| ------------------------------- | -------------------------------------- | -------------------------------- |
+| `features/<feature>/api`        | 該功能的 API 呼叫、資料轉換與 API 測試 | 跨功能的登入、WebSocket 基礎連線 |
+| `features/<feature>/components` | 該功能的頁面元件與區塊元件             | Next.js 路由入口                 |
+| `features/<feature>/utils`      | 該功能的純函式、草稿或排序邏輯         | React 元件與伺服器資料快取       |
+| `shared/auth`                   | 使用者身分、登入與 App 門禁            | 單一頁面的 profile UI            |
+| `shared/realtime`               | WebSocket 連線、訂閱與共用事件         | 聊天訊息呈現 UI                  |
+| `shared/ui`                     | 多個功能會使用的共用 UI                | 只服務單一功能的按鈕或表單       |

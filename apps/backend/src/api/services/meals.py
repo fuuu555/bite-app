@@ -133,10 +133,6 @@ async def create_meal(
         raise ValueError("scheduled time must be in the future")
     if payload.join_deadline is not None and payload.join_deadline >= payload.scheduled_at:
         raise ValueError("join deadline must be before the meal time")
-    if payload.visibility == "private" and payload.restaurant_mode == "vote":
-        # Private voting is intentionally left TBD in the product requirements.
-        # 私人約飯的投票規則尚未定案，因此此階段不擅自啟用。
-        raise ValueError("private meal voting is not available yet")
     if payload.visibility == "public":
         if payload.join_deadline is None:
             raise ValueError("public meals need a join deadline")
@@ -169,6 +165,11 @@ async def create_meal(
     session.add(meal)
     await session.flush()
     session.add(MealMembership(meal_event_id=meal.id, user_id=host.id, membership_status="host"))
+    # Import locally so meal policy constants remain available to the chat service without a cycle.
+    # 區域匯入可讓聊天服務共用約飯權限常數，同時避免模組循環相依。
+    from api.services.chat import sync_meal_conversation_member
+
+    await sync_meal_conversation_member(session, meal.id, host.id, "host")
     if payload.restaurant_mode == "vote" and restaurant is not None:
         session.add(MealCandidate(meal_event_id=meal.id, restaurant_id=restaurant.id, position=1))
     await session.commit()
@@ -185,8 +186,7 @@ async def add_candidate(
     if meal.host_user_id != actor_id:
         raise PermissionError("meal host required")
     if (
-        meal.visibility != "public"
-        or meal.status not in ("open", "awaiting_host_decision")
+        meal.status not in ("open", "awaiting_host_decision")
         or meal.decided_restaurant_id is not None
     ):
         raise ValueError("candidates can only be edited before public voting starts")
@@ -218,8 +218,7 @@ async def remove_candidate(
     if meal.host_user_id != actor_id:
         raise PermissionError("meal host required")
     if (
-        meal.visibility != "public"
-        or meal.status not in ("open", "awaiting_host_decision")
+        meal.status not in ("open", "awaiting_host_decision")
         or meal.decided_restaurant_id is not None
     ):
         raise ValueError("candidates can only be edited before public voting starts")
@@ -266,6 +265,9 @@ async def join_meal(session: AsyncSession, meal: MealEvent, user_id: uuid.UUID) 
                 membership_status=next_status,
             )
         )
+    from api.services.chat import sync_meal_conversation_member
+
+    await sync_meal_conversation_member(session, meal.id, user_id, next_status)
     await session.commit()
     refreshed = (await get_meal(session, meal.id)) or meal
     await refresh_public_meal_state(session, refreshed)
@@ -282,6 +284,9 @@ async def leave_meal(session: AsyncSession, meal: MealEvent, user_id: uuid.UUID)
     if member.membership_status == "host":
         raise ValueError("host cannot leave this meal")
     member.membership_status = "left"
+    from api.services.chat import sync_meal_conversation_member
+
+    await sync_meal_conversation_member(session, meal.id, user_id, "left")
     await session.commit()
     return (await get_meal(session, meal.id)) or meal
 
@@ -318,6 +323,9 @@ async def review_member(
     if approved and len(formal_members(meal)) >= meal.capacity:
         raise ValueError("meal is full")
     member.membership_status = "member" if approved else "rejected"
+    from api.services.chat import sync_meal_conversation_member
+
+    await sync_meal_conversation_member(session, meal.id, target_user_id, member.membership_status)
     await session.commit()
     return (await get_meal(session, meal.id)) or meal
 
@@ -335,6 +343,9 @@ async def remove_member(
     if member is None or member.membership_status not in ("member", "pending"):
         raise LookupError("removable member not found")
     member.membership_status = "removed"
+    from api.services.chat import sync_meal_conversation_member
+
+    await sync_meal_conversation_member(session, meal.id, target_user_id, "removed")
     await session.commit()
     return (await get_meal(session, meal.id)) or meal
 
@@ -346,11 +357,7 @@ async def start_voting(session: AsyncSession, meal: MealEvent, host_id: uuid.UUI
     """
     if meal.host_user_id != host_id:
         raise PermissionError("meal host required")
-    if (
-        meal.visibility != "public"
-        or meal.status != "open"
-        or meal.decided_restaurant_id is not None
-    ):
+    if meal.status != "open" or meal.decided_restaurant_id is not None:
         raise ValueError("this meal cannot start voting")
     if not meal.candidates:
         raise ValueError("add at least one candidate before voting")
@@ -389,7 +396,7 @@ async def cast_vote(
 
     儲存正式成員的一張可更新選票。
     """
-    if meal.visibility != "public" or meal.status != "voting":
+    if meal.status != "voting":
         raise ValueError("voting is not open")
     member = membership_for(meal, voter_id)
     if member is None or member.membership_status not in FORMAL_MEMBERSHIP_STATUSES:
@@ -422,7 +429,7 @@ async def finalize_vote(session: AsyncSession, meal: MealEvent, host_id: uuid.UU
     """
     if meal.host_user_id != host_id:
         raise PermissionError("meal host required")
-    if meal.visibility != "public" or meal.status != "voting":
+    if meal.status != "voting":
         raise ValueError("voting is not ready to finalize")
     formal_ids = [member.user_id for member in formal_members(meal)]
     vote_rows = (

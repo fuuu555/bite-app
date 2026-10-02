@@ -165,12 +165,21 @@ async def require_user(
 
     預設拒絕未登入請求，並更新目前 Session 的最後活動時間。
     """
-    if not session_token:
+    context = await authenticate_user_session(session, session_token)
+    if context is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="user authentication required",
         )
+    return context
 
+
+async def authenticate_user_session(
+    session: AsyncSession, session_token: str | None
+) -> UserSessionContext | None:
+    """Resolve a live user session for HTTP or WebSocket use / 驗證 HTTP 或 WebSocket Session。"""
+    if not session_token:
+        return None
     now = datetime.now(UTC)
     result = await session.execute(
         select(UserSession, User)
@@ -184,10 +193,7 @@ async def require_user(
     )
     row = result.one_or_none()
     if row is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="user authentication required",
-        )
+        return None
 
     user_session, user = row
     user_session.last_seen_at = now

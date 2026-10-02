@@ -6,7 +6,7 @@ import re
 import uuid
 
 from geoalchemy2 import Geography
-from sqlalchemy import Select, func, or_, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -153,9 +153,8 @@ async def query_public_restaurant_search(
     query: str,
     result_limit: int,
 ) -> list[MapRestaurantResponse]:
-    """Search published restaurants by name or address / 搜尋已發布店家名稱或地址。"""
+    """Search published restaurants by name / 只搜尋已發布店家名稱。"""
     name_term = query.strip().lower()
-    address_term = _normalize_area_term(query)
     statement: Select[tuple[Restaurant]] = (
         select(Restaurant)
         .options(
@@ -167,10 +166,7 @@ async def query_public_restaurant_search(
             Restaurant.location.is_not(None),
             Restaurant.primary_cuisine_id.is_not(None),
             Restaurant.price_range.is_not(None),
-            or_(
-                func.lower(Restaurant.name).contains(name_term),
-                _normalized_address().contains(address_term),
-            ),
+            func.lower(Restaurant.name).contains(name_term),
         )
         .order_by(Restaurant.updated_at.desc(), Restaurant.id)
         .limit(result_limit)

@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql+asyncpg://bitemap:bitemap_ci@127.0.0.1:5433/bitemap
-      API_CORS_ORIGINS: http://127.0.0.1:3000
+      API_CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
       RUN_DATABASE_TESTS: "1"
       E2E_ADMIN_EMAIL: admin-e2e@example.test
       E2E_ADMIN_PASSWORD: admin-e2e-password
@@ -26,6 +26,15 @@ jobs:
           POSTGRES_PASSWORD: bitemap_ci
         options: >-
           --health-cmd "pg_isready -U bitemap -d bitemap"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 10

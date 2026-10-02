@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,11 +13,9 @@ from api.core.database import get_session
 from api.domain.schemas import (
     MapCuisineResponse,
     MapRestaurantsResponse,
-    MapSearchLocationResponse,
     MapSearchResponse,
     PriceRange,
 )
-from api.integrations.geocoding import GeocodingProvider, get_geocoding_provider
 from api.services.map import (
     list_active_cuisines,
     query_public_restaurant_search,
@@ -82,14 +79,10 @@ async def list_public_cuisines(session: SessionDep) -> list[MapCuisineResponse]:
 @router.get("/search", response_model=MapSearchResponse)
 async def search_public_map(
     session: SessionDep,
-    provider: Annotated[GeocodingProvider, Depends(get_geocoding_provider)],
     q: Annotated[str, Query(min_length=2, max_length=120)],
     limit: Annotated[int, Query(ge=1, le=5)] = 5,
 ) -> MapSearchResponse:
-    """Search locations and published restaurants without mixing sources.
-
-    分別搜尋地理位置與正式店家，避免外部地理編碼結果直接成為店家資料。
-    """
+    """Search only published restaurants / 只搜尋已發布店家。"""
     query = q.strip()
     if len(query) < 2:
         raise HTTPException(
@@ -102,24 +95,7 @@ async def search_public_map(
         query=q,
         result_limit=limit,
     )
-    locations: list[MapSearchLocationResponse] = []
-    provider_failed = False
-    if provider.configured:
-        try:
-            locations = [
-                MapSearchLocationResponse(
-                    label=candidate.label,
-                    latitude=candidate.latitude,
-                    longitude=candidate.longitude,
-                    source="geocoding",
-                )
-                for candidate in (await provider.geocode(q))[:limit]
-            ]
-        except httpx.HTTPError:
-            provider_failed = True
-
     return MapSearchResponse(
-        status="partial" if provider_failed else "ok",
-        locations=locations,
+        status="ok",
         restaurants=restaurant_results,
     )

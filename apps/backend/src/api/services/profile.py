@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import re
+import secrets
 import uuid
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -84,17 +85,28 @@ async def create_profile(
     tags: list[str] | None = None,
 ) -> UserProfile:
     resolved_tags = await resolve_tags(session, user.id, tags or [])
+    friend_code = await _generate_friend_code(session)
     profile = UserProfile(
         user_id=user.id,
         display_name=display_name,
         bio=bio,
         avatar_url=avatar_url,
         avatar_source="google" if avatar_url else "url",
+        friend_code=friend_code,
         tags=resolved_tags,
     )
     session.add(profile)
     await session.flush()
     return profile
+
+
+async def _generate_friend_code(session: AsyncSession) -> str:
+    """Generate a unique six-digit social lookup code / 產生唯一六位數社交查找碼。"""
+    for _ in range(32):
+        candidate = f"{secrets.randbelow(1_000_000):06d}"
+        if not await session.scalar(select(exists().where(UserProfile.friend_code == candidate))):
+            return candidate
+    raise RuntimeError("unable to allocate a unique friend code")
 
 
 async def resolve_tags(
@@ -180,6 +192,7 @@ def public_profile_response(user: User, profile: UserProfile) -> PublicProfileRe
         avatar_source=profile.avatar_source,  # type: ignore[arg-type]
         avatar_asset_id=profile.avatar_asset_id,
         tags=[ProfileTagResponse.model_validate(tag) for tag in profile.tags],
+        accept_stranger_messages=profile.accept_stranger_messages,
     )
 
 
@@ -193,6 +206,8 @@ def my_profile_response(user: User, profile: UserProfile) -> MyProfileResponse:
         avatar_source=profile.avatar_source,  # type: ignore[arg-type]
         avatar_asset_id=profile.avatar_asset_id,
         tags=[ProfileTagResponse.model_validate(tag) for tag in profile.tags],
+        friend_code=profile.friend_code,
+        accept_stranger_messages=profile.accept_stranger_messages,
     )
 
 

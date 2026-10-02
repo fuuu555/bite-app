@@ -1,6 +1,8 @@
 """FastAPI application entry point / FastAPI 應用程式進入點。"""
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -10,17 +12,31 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from api.core.config import get_settings
 from api.core.database import check_database
+from api.realtime import realtime
 from api.routers.admin import router as admin_router
 from api.routers.auth import router as auth_router
+from api.routers.chat import router as chat_router
 from api.routers.explore import router as explore_router
 from api.routers.meals import router as meals_router
 from api.routers.public_map import router as public_map_router
 from api.routers.reviews import router as reviews_router
+from api.routers.social import router as social_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
-app = FastAPI(title=settings.app_name, version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Start and stop cross-instance realtime transport / 啟停跨程序即時事件傳輸。"""
+    await realtime.start()
+    try:
+        yield
+    finally:
+        await realtime.stop()
+
+
+app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 media_root = Path(__file__).resolve().parents[2] / "media"
 app.mount("/media", StaticFiles(directory=media_root), name="media")
 app.add_middleware(
@@ -36,6 +52,8 @@ app.include_router(public_map_router)
 app.include_router(explore_router)
 app.include_router(reviews_router)
 app.include_router(meals_router)
+app.include_router(chat_router)
+app.include_router(social_router)
 
 
 @app.get("/health/live", tags=["health"])

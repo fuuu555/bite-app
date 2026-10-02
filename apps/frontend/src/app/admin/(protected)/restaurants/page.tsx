@@ -1,4 +1,4 @@
-import { RestaurantList } from "@/components/admin/restaurant-list";
+import { RestaurantList } from "@/features/admin/components/restaurant-list";
 
 export default function RestaurantsPage() {
   return <RestaurantList />;

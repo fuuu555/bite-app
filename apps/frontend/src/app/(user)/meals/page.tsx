@@ -1,4 +1,4 @@
-import { MealsPage } from "@/components/user/meals-page";
+import { MealsPage } from "@/features/meals/components/meals-page";
 
 export default async function MealsRoute({
   searchParams,

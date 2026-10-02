@@ -366,6 +366,60 @@
     padding-inline: 5px;
   }
 
+  .friends-hub {
+    gap: 14px;
+    padding-top: 18px;
+  }
+
+  .friends-hub__code-card {
+    align-items: flex-start;
+  }
+
+  .friends-hub__search > div {
+    align-items: stretch;
+  }
+
+  .friends-hub__search .button,
+  .friends-hub__lookup .button,
+  .friends-hub__friend > .button:not(.friends-hub__remove),
+  .friends-hub__request > .button {
+    padding-inline: 9px;
+    white-space: nowrap;
+  }
+
+  .friends-hub__lookup {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .friends-hub__lookup .button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .friends-hub__request,
+  .friends-hub__friend {
+    flex-wrap: wrap;
+  }
+
+  .friends-hub__request strong,
+  .friends-hub__friend strong {
+    flex: 1 1 100px;
+  }
+
+  .friends-hub__request .button,
+  .friends-hub__friend .button {
+    margin-left: 0;
+  }
+
+  .friends-hub__friend .friends-hub__remove {
+    margin-left: auto;
+  }
+
+  .friends-hub__privacy {
+    align-items: flex-start;
+  }
+
   .profile-tab-panel {
     padding: 22px 0 0;
   }
@@ -779,6 +833,49 @@
   .explore-restaurant-card__scores {
     grid-template-columns: 1fr 1fr;
   }
+
+  .chat-page {
+    width: min(100% - 28px, 920px);
+    padding-top: 30px;
+  }
+
+  .chat-tabs button {
+    flex: 1;
+    padding-inline: 7px;
+  }
+
+  .chat-list > a {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 15px;
+  }
+
+  .chat-list time {
+    display: none;
+  }
+
+  .meal-chat__header,
+  .meal-chat__messages,
+  .meal-chat__composer {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .meal-chat__message > div {
+    max-width: calc(100% - 45px);
+  }
+
+  .meal-chat__message.is-mine > div {
+    max-width: 86%;
+  }
+
+  .meal-chat__composer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .meal-chat__composer .button {
+    width: auto;
+  }
 }
 
 @media (max-width: 767px) {
@@ -958,6 +1055,10 @@
     padding: 22px 12px 96px;
   }
 
+  .meal-detail-page--with-chat {
+    padding-bottom: 20px;
+  }
+
   .meal-detail-page__surface {
     border-radius: 20px;
   }
@@ -982,6 +1083,12 @@
     flex-wrap: wrap;
     min-height: 68px;
     padding: 11px 17px;
+  }
+
+  /* A sticky meal action bar would cover the chat composer on narrow screens. */
+  /* 手機版有聊天室時改回一般文流，避免操作列蓋住訊息輸入區。 */
+  .meal-detail-page__surface--with-chat .meal-detail-page__actions {
+    position: static;
   }
 
   .meal-detail-page__actions .button {
@@ -1064,6 +1171,19 @@
 }
 
 @media (max-width: 767px) {
+  .app-confirm-dialog {
+    padding: 20px;
+  }
+
+  .app-confirm-dialog__actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .app-confirm-dialog__actions .button {
+    width: 100%;
+  }
+
   .restaurant-detail-v3__carousel,
   .restaurant-detail-v3__carousel-track,
   .restaurant-detail-v3__carousel-slide {

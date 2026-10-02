@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import secrets
 import uuid
 from datetime import datetime
 
@@ -25,6 +26,11 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from api.core.database import Base
+
+
+def _default_friend_code() -> str:
+    """Provide a valid ORM fallback for fixtures and direct model creation / 提供 ORM 預設碼。"""
+    return f"{secrets.randbelow(1_000_000):06d}"
 
 
 class User(Base):
@@ -101,6 +107,12 @@ class UserProfile(Base):
     """User-owned public profile fields / 使用者可管理的公開個人資料。"""
 
     __tablename__ = "user_profiles"
+    __table_args__ = (
+        CheckConstraint(
+            "friend_code ~ '^[0-9]{6}$'",
+            name="ck_user_profiles_friend_code_digits",
+        ),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
@@ -111,6 +123,10 @@ class UserProfile(Base):
     avatar_source: Mapped[str] = mapped_column(String(16), default="url")
     avatar_asset_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("avatar_assets.id", ondelete="SET NULL"), nullable=True
+    )
+    friend_code: Mapped[str] = mapped_column(String(6), unique=True, default=_default_friend_code)
+    accept_stranger_messages: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -479,6 +495,95 @@ class ReviewLike(Base):
     )
 
 
+class Friendship(Base):
+    """Canonical bidirectional friendship / 以排序使用者配對保存雙向好友關係。"""
+
+    __tablename__ = "friendships"
+    __table_args__ = (
+        CheckConstraint("user_low_id < user_high_id", name="ck_friendships_canonical_pair"),
+    )
+
+    user_low_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_high_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class FriendRequest(Base):
+    """One directed friend request / 一筆有方向的好友邀請。"""
+
+    __tablename__ = "friend_requests"
+    __table_args__ = (
+        CheckConstraint("requester_id <> recipient_id", name="ck_friend_requests_distinct_users"),
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'rejected', 'cancelled')",
+            name="ck_friend_requests_status",
+        ),
+        Index("ix_friend_requests_recipient_status", "recipient_id", "status"),
+        Index(
+            "uq_friend_requests_pending_direction",
+            "requester_id",
+            "recipient_id",
+            unique=True,
+            postgresql_where="status = 'pending'",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    requester_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    recipient_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(16), default="pending", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    responded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Block(Base):
+    """Directed block relation / 有方向的封鎖關係。"""
+
+    __tablename__ = "blocks"
+    __table_args__ = (CheckConstraint("blocker_id <> blocked_id", name="ck_blocks_distinct_users"),)
+
+    blocker_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    blocked_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class UserFollow(Base):
+    """One-way follow relation / 單向追蹤關係。"""
+
+    __tablename__ = "user_follows"
+    __table_args__ = (
+        CheckConstraint("follower_id <> followed_id", name="ck_user_follows_distinct_users"),
+    )
+
+    follower_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    followed_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class RestaurantFavorite(Base):
     """One user's restaurant favorite / 使用者與餐廳的一筆收藏關係。"""
 
@@ -626,6 +731,148 @@ class MealVote(Base):
     meal: Mapped[MealEvent] = relationship(back_populates="votes")
     voter: Mapped[User] = relationship(foreign_keys=[voter_user_id])
     candidate: Mapped[MealCandidate] = relationship()
+
+
+class Conversation(Base):
+    """A persistent direct or meal conversation / 永久保存的私訊或飯局聊天室。"""
+
+    __tablename__ = "conversations"
+    __table_args__ = (
+        CheckConstraint("kind IN ('meal', 'direct')", name="ck_conversations_kind"),
+        CheckConstraint(
+            "(kind = 'meal' AND meal_event_id IS NOT NULL) OR "
+            "(kind = 'direct' AND meal_event_id IS NULL)",
+            name="ck_conversations_kind_target",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    kind: Mapped[str] = mapped_column(String(16))
+    meal_event_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("meal_events.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    meal: Mapped[MealEvent | None] = relationship()
+    members: Mapped[list[ConversationMember]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+    messages: Mapped[list[Message]] = relationship(
+        back_populates="conversation", cascade="all, delete-orphan"
+    )
+
+
+class ConversationMember(Base):
+    """Historical participation in a conversation / 聊天室參與歷程。"""
+
+    __tablename__ = "conversation_members"
+
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    joined_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    left_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_read_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True
+    )
+    last_read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    conversation: Mapped[Conversation] = relationship(back_populates="members")
+    user: Mapped[User] = relationship()
+
+
+class DirectConversationPair(Base):
+    """Unique identity for one direct conversation / 一對一私訊聊天室的唯一配對。"""
+
+    __tablename__ = "direct_conversation_pairs"
+    __table_args__ = (
+        CheckConstraint("user_low_id < user_high_id", name="ck_direct_pairs_canonical_pair"),
+    )
+
+    user_low_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_high_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class Message(Base):
+    """One persisted plain-text chat message / 一筆永久保存的純文字訊息。"""
+
+    __tablename__ = "messages"
+    __table_args__ = (
+        CheckConstraint(
+            "char_length(content) BETWEEN 1 AND 2000", name="ck_messages_content_length"
+        ),
+        Index("ix_messages_conversation_created", "conversation_id", "created_at", "id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("conversations.id", ondelete="CASCADE")
+    )
+    sender_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
+    reply_to_message_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("messages.id", ondelete="SET NULL"), nullable=True
+    )
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    recalled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")
+    sender: Mapped[User] = relationship()
+    reply_to: Mapped[Message | None] = relationship(
+        remote_side="Message.id", foreign_keys=[reply_to_message_id]
+    )
+    pin: Mapped[MessagePin | None] = relationship(
+        back_populates="message", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class MessagePin(Base):
+    """Conversation-level pin for a message / 聊天室層級的訊息釘選。"""
+
+    __tablename__ = "message_pins"
+
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), primary_key=True
+    )
+    pinned_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), index=True
+    )
+    pinned_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    message: Mapped[Message] = relationship(back_populates="pin")
+    pinned_by: Mapped[User] = relationship()
 
 
 class AuditLog(Base):

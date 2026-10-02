@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     app_name: str = "BiteMap API"
     app_environment: str = "development"
     database_url: str = "postgresql+asyncpg://bitemap:bitemap_local_dev_only@127.0.0.1:5433/bitemap"
-    api_cors_origins: str = "http://localhost:3000"
+    api_cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
     admin_session_cookie: str = "bitemap_admin_session"
     admin_session_hours: int = 8
     user_session_cookie: str = "bitemap_user_session"
@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     public_map_result_limit: int = 250
     geocoding_provider: str = "nominatim"
     geocoding_user_agent: str = "BiteMap/0.1 (local development)"
+    redis_url: str = "redis://127.0.0.1:6379/0"
+    realtime_channel: str = "bitemap:realtime"
+    chat_message_rate_limit: int = 5
+    chat_message_rate_window_seconds: int = 10
 
     model_config = SettingsConfigDict(
         env_file=(".env", ".env.local"),

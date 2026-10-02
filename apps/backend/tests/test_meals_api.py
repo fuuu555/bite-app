@@ -12,7 +12,7 @@ from sqlalchemy import delete
 
 from api.core.database import session_factory
 from api.core.security import create_user_session
-from api.domain.models import Cuisine, MealCandidate, MealEvent, Restaurant, User, UserProfile
+from api.domain.models import Cuisine, MealEvent, Restaurant, User, UserProfile
 from api.main import app
 
 pytestmark = pytest.mark.skipif(
@@ -212,25 +212,12 @@ async def test_public_meal_vote_and_private_application() -> None:
                     "scheduled_at": (now + timedelta(days=3)).isoformat(),
                     "join_deadline": None,
                     "capacity": 2,
-                    "restaurant_mode": "direct",
+                    "restaurant_mode": "vote",
                     "restaurant_id": str(second_restaurant_id),
                 },
             )
             assert private_created.status_code == 201
             private_meal_id = private_created.json()["id"]
-
-            # Seed a candidate defensively: private voting is currently disabled, but the response
-            # must remain fail-closed if legacy or future data contains candidates.
-            # 防禦性建立候選資料，確認私人申請者未核准前 API 不會洩漏候選內容。
-            async with session_factory() as session:
-                session.add(
-                    MealCandidate(
-                        meal_event_id=uuid.UUID(private_meal_id),
-                        restaurant_id=first_restaurant_id,
-                        position=1,
-                    )
-                )
-                await session.commit()
 
             private_before_application = await guest_client.get(f"/api/v1/meals/{private_meal_id}")
             assert private_before_application.status_code == 200
@@ -258,6 +245,47 @@ async def test_public_meal_vote_and_private_application() -> None:
             approved_member_view = await guest_client.get(f"/api/v1/meals/{private_meal_id}")
             assert approved_member_view.status_code == 200
             assert len(approved_member_view.json()["candidates"]) == 1
+            assert all(
+                candidate["vote_count"] is None
+                for candidate in approved_member_view.json()["candidates"]
+            )
+
+            private_added_candidate = await host_client.post(
+                f"/api/v1/meals/{private_meal_id}/candidates",
+                json={"restaurant_id": str(first_restaurant_id)},
+            )
+            assert private_added_candidate.status_code == 200
+            assert len(private_added_candidate.json()["candidates"]) == 2
+
+            private_voting = await host_client.post(f"/api/v1/meals/{private_meal_id}/start-voting")
+            assert private_voting.status_code == 200
+            assert private_voting.json()["status"] == "voting"
+            private_candidates = private_voting.json()["candidates"]
+            assert all(isinstance(candidate["vote_count"], int) for candidate in private_candidates)
+
+            private_guest_vote = await guest_client.post(
+                f"/api/v1/meals/{private_meal_id}/votes",
+                json={"candidate_id": private_candidates[0]["id"]},
+            )
+            assert private_guest_vote.status_code == 200
+            private_host_vote = await host_client.post(
+                f"/api/v1/meals/{private_meal_id}/votes",
+                json={"candidate_id": private_candidates[1]["id"]},
+            )
+            assert private_host_vote.status_code == 200
+            assert {
+                candidate["vote_count"] for candidate in private_host_vote.json()["candidates"]
+            } == {1}
+
+            private_decided = await host_client.post(
+                f"/api/v1/meals/{private_meal_id}/finalize-vote"
+            )
+            assert private_decided.status_code == 200
+            assert private_decided.json()["status"] == "decided"
+            assert private_decided.json()["decided_restaurant"]["id"] in {
+                str(first_restaurant_id),
+                str(second_restaurant_id),
+            }
 
             cancellable = await host_client.post(
                 "/api/v1/meals",

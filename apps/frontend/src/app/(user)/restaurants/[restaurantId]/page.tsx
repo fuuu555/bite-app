@@ -1,4 +1,4 @@
-import { RestaurantDetailPage } from "@/components/user/restaurant-detail-page";
+import { RestaurantDetailPage } from "@/features/restaurants/components/restaurant-detail-page";
 
 export default async function RestaurantPage({
   params,

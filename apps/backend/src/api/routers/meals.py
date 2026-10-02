@@ -19,6 +19,8 @@ from api.domain.schemas import (
     MealResponse,
     MealVoteRequest,
 )
+from api.realtime import realtime
+from api.services.chat import private_meal_state_audience
 from api.services.meals import (
     LIVE_MEAL_STATUSES,
     add_candidate,
@@ -58,6 +60,37 @@ async def _meal_or_404(session: AsyncSession, meal_id: uuid.UUID) -> MealEvent:
     return meal
 
 
+async def _publish_meal_updated(
+    session: AsyncSession,
+    meal: MealEvent,
+    extra_user_ids: set[uuid.UUID] | None = None,
+) -> None:
+    audience = await private_meal_state_audience(session, meal.id, extra_user_ids)
+    await realtime.publish(
+        {
+            "type": "meal.updated",
+            "meal_id": str(meal.id),
+            "audience_user_ids": (
+                [str(user_id) for user_id in audience] if audience is not None else None
+            ),
+        }
+    )
+    # Lists receive only an invalidation signal and always reload through authorized REST.
+    # 列表只收到失效通知，實際資料一律重新走有權限的 REST。
+    await realtime.publish({"type": "meal.list.updated"})
+
+
+async def _response_and_publish(
+    session: AsyncSession,
+    meal: MealEvent,
+    current_user_id: uuid.UUID,
+    extra_user_ids: set[uuid.UUID] | None = None,
+) -> MealResponse:
+    response = await meal_response(session, meal, current_user_id)
+    await _publish_meal_updated(session, meal, extra_user_ids)
+    return response
+
+
 @router.get("/meals", response_model=MealListResponse)
 async def read_meals(
     session: SessionDep,
@@ -84,6 +117,7 @@ async def read_meals(
         meal = await _meal_or_404(session, meal_id)
         if await refresh_public_meal_state(session, meal):
             meal = await _meal_or_404(session, meal_id)
+            await _publish_meal_updated(session, meal)
         if meal.status not in LIVE_MEAL_STATUSES:
             continue
         meals.append(await meal_response(session, meal, current.user.id))
@@ -100,7 +134,7 @@ async def write_meal(
         meal = await create_meal(session, current.user, payload)
     except ValueError as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.get("/meals/{meal_id}", response_model=MealResponse)
@@ -114,6 +148,7 @@ async def read_meal(meal_id: uuid.UUID, session: SessionDep, current: UserDep) -
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="meal not found")
     if await refresh_public_meal_state(session, meal):
         meal = await _meal_or_404(session, meal_id)
+        await _publish_meal_updated(session, meal)
     if meal.status == "cancelled":
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="meal cancelled")
     if meal.status not in LIVE_MEAL_STATUSES:
@@ -130,7 +165,7 @@ async def join_existing_meal(
         meal = await join_meal(session, meal, current.user.id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.post("/meals/{meal_id}/leave", response_model=MealResponse)
@@ -142,7 +177,9 @@ async def leave_existing_meal(
         meal = await leave_meal(session, meal, current.user.id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(
+        session, meal, current.user.id, extra_user_ids={current.user.id}
+    )
 
 
 @router.post("/meals/{meal_id}/cancel", response_model=MealResponse)
@@ -155,7 +192,7 @@ async def cancel_existing_meal(
         meal = await cancel_meal(session, meal, current.user.id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.post("/meals/{meal_id}/members/{user_id}/approve", response_model=MealResponse)
@@ -167,7 +204,7 @@ async def approve_private_member(
         meal = await review_member(session, meal, current.user.id, user_id, approved=True)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.post("/meals/{meal_id}/members/{user_id}/reject", response_model=MealResponse)
@@ -179,7 +216,7 @@ async def reject_private_member(
         meal = await review_member(session, meal, current.user.id, user_id, approved=False)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id, extra_user_ids={user_id})
 
 
 @router.post("/meals/{meal_id}/members/{user_id}/remove", response_model=MealResponse)
@@ -191,7 +228,7 @@ async def remove_existing_member(
         meal = await remove_member(session, meal, current.user.id, user_id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id, extra_user_ids={user_id})
 
 
 @router.post("/meals/{meal_id}/candidates", response_model=MealResponse)
@@ -206,7 +243,7 @@ async def add_meal_candidate(
         meal = await add_candidate(session, meal, current.user.id, payload.restaurant_id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.delete("/meals/{meal_id}/candidates/{candidate_id}", response_model=MealResponse)
@@ -218,7 +255,7 @@ async def delete_meal_candidate(
         meal = await remove_candidate(session, meal, current.user.id, candidate_id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.post("/meals/{meal_id}/start-voting", response_model=MealResponse)
@@ -230,7 +267,7 @@ async def start_meal_voting(
         meal = await start_voting(session, meal, current.user.id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.post("/meals/{meal_id}/start-with-current-members", response_model=MealResponse)
@@ -243,7 +280,7 @@ async def start_with_available_members(
         meal = await start_with_current_members(session, meal, current.user.id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.post("/meals/{meal_id}/votes", response_model=MealResponse)
@@ -255,7 +292,7 @@ async def write_meal_vote(
         meal = await cast_vote(session, meal, current.user.id, payload.candidate_id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)
 
 
 @router.post("/meals/{meal_id}/finalize-vote", response_model=MealResponse)
@@ -267,4 +304,4 @@ async def finalize_meal_vote(
         meal = await finalize_vote(session, meal, current.user.id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _http_error(error) from error
-    return await meal_response(session, meal, current.user.id)
+    return await _response_and_publish(session, meal, current.user.id)

@@ -12,33 +12,12 @@ from sqlalchemy import delete
 from api.core.config import get_settings
 from api.core.database import session_factory
 from api.domain.models import Cuisine, Restaurant, RestaurantPhoto
-from api.domain.schemas import GeocodingCandidate
-from api.integrations.geocoding import get_geocoding_provider
 from api.main import app
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_DATABASE_TESTS") != "1",
     reason="set RUN_DATABASE_TESTS=1 with PostGIS running",
 )
-
-
-class FakeGeocodingProvider:
-    """Deterministic geocoder for API tests / API 測試使用的固定地理編碼器。"""
-
-    configured = True
-
-    async def geocode(self, address: str) -> list[GeocodingCandidate]:
-        return [
-            GeocodingCandidate(
-                label=f"{address} 測試位置",
-                latitude=24.9537,
-                longitude=121.2258,
-            )
-        ]
-
-    async def reverse(self, latitude: float, longitude: float) -> str | None:
-        del latitude, longitude
-        return None
 
 
 @pytest.mark.asyncio
@@ -153,9 +132,7 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
                 params={"q": "臺灣 320 桃園市中壢區測試路 1 號", "limit": 5},
             )
             assert address_search.status_code == 200
-            assert [item["name"] for item in address_search.json()["restaurants"]] == [
-                "範圍內已發布店家"
-            ]
+            assert address_search.json() == {"status": "ok", "restaurants": []}
 
             filtered = await client.get(
                 "/api/v1/map/restaurants",
@@ -174,7 +151,6 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
                 "範圍內第二間已發布店家",
             }
 
-            app.dependency_overrides[get_geocoding_provider] = lambda: FakeGeocodingProvider()
             search_response = await client.get(
                 "/api/v1/map/search",
                 params={"q": "範圍內", "limit": 5},
@@ -199,16 +175,14 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
                 params={"q": "臺灣 320 桃園市中壢區測試路 1 號", "limit": 5},
             )
             assert address_search.status_code == 200
-            assert [item["name"] for item in address_search.json()["restaurants"]] == [
-                "範圍內已發布店家"
-            ]
+            assert address_search.json() == {"status": "ok", "restaurants": []}
 
-            location_response = await client.get(
+            unknown_search = await client.get(
                 "/api/v1/map/search",
-                params={"q": "中原大學", "limit": 5},
+                params={"q": f"不存在-{unique}", "limit": 5},
             )
-            assert location_response.status_code == 200
-            assert location_response.json()["locations"][0]["source"] == "geocoding"
+            assert unknown_search.status_code == 200
+            assert unknown_search.json() == {"status": "ok", "restaurants": []}
 
             cuisines_response = await client.get("/api/v1/map/cuisines")
             assert cuisines_response.status_code == 200
@@ -228,7 +202,6 @@ async def test_public_map_returns_only_published_restaurants_inside_bounds() -> 
             assert len(limited.json()["restaurants"]) == 1
     finally:
         app.dependency_overrides.pop(get_settings, None)
-        app.dependency_overrides.pop(get_geocoding_provider, None)
         async with session_factory() as session:
             await session.execute(delete(Restaurant).where(Restaurant.id.in_(restaurant_ids)))
             await session.execute(delete(Cuisine).where(Cuisine.id == cuisine_id))

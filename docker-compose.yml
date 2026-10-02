@@ -1,6 +1,7 @@
 services:
   db:
-    # PostGIS is the only container required by Stage 0 / Stage 0 只需要 PostGIS。
+    # PostgreSQL remains the durable source for application and chat data.
+    # PostgreSQL 持續作為應用程式與聊天資料的永久來源。
     image: postgis/postgis:17-3.5
     restart: unless-stopped
     environment:
@@ -17,6 +18,19 @@ services:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
+      retries: 12
+
+  redis:
+    # Redis only transports live events; reconnects recover durable data from PostgreSQL.
+    # Redis 只傳遞即時事件；重新連線後仍由 PostgreSQL 補齊永久資料。
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
       retries: 12
 
 volumes:

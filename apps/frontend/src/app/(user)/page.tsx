@@ -1,4 +1,4 @@
-import { ExplorePage as ExplorePageContent } from "@/components/user/explore-page";
+import { ExplorePage as ExplorePageContent } from "@/features/home/components/explore-page";
 
 export default function ExplorePage() {
   return <ExplorePageContent />;

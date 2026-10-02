@@ -1,4 +1,4 @@
-import { PublicProfilePage } from "@/components/user/public-profile-page";
+import { PublicProfilePage } from "@/features/profile/components/public-profile-page";
 
 export default async function PublicProfileRoute({
   params,

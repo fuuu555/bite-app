@@ -48,6 +48,7 @@ from api.services.profile import (
     update_profile,
     user_session_response,
 )
+from api.services.social import relationship_state
 
 router = APIRouter(prefix="/api/v1", tags=["auth"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -262,7 +263,9 @@ async def patch_my_profile(
 
 
 @router.get("/profiles/{user_id}", response_model=PublicProfileResponse)
-async def read_public_profile(user_id: uuid.UUID, session: SessionDep) -> PublicProfileResponse:
+async def read_public_profile(
+    user_id: uuid.UUID, session: SessionDep, current: UserDep
+) -> PublicProfileResponse:
     result = await session.execute(
         select(User).where(
             User.id == user_id,
@@ -281,7 +284,9 @@ async def read_public_profile(user_id: uuid.UUID, session: SessionDep) -> Public
     user_profile = profile.scalar_one_or_none()
     if user_profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="profile not found")
-    return public_profile_response(user, user_profile)
+    return public_profile_response(user, user_profile).model_copy(
+        update={"relationship": await relationship_state(session, current.user.id, user_id)}
+    )
 
 
 @router.get("/me/sessions", response_model=list[UserSessionResponse])

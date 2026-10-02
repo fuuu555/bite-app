@@ -555,9 +555,7 @@ export interface paths {
     };
     /**
      * Search Public Map
-     * @description Search locations and published restaurants without mixing sources.
-     *
-     *     分別搜尋地理位置與正式店家，避免外部地理編碼結果直接成為店家資料。
+     * @description Search only published restaurants / 只搜尋已發布店家。
      */
     get: operations["search_public_map_api_v1_map_search_get"];
     put?: never;
@@ -982,6 +980,315 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/meals/{meal_id}/messages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Messages */
+    get: operations["read_messages_api_v1_meals__meal_id__messages_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/conversations/{conversation_id}/messages": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Conversation History */
+    get: operations["read_conversation_history_api_v1_conversations__conversation_id__messages_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/meals/{meal_id}/pins": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Meal Pins */
+    get: operations["read_meal_pins_api_v1_meals__meal_id__pins_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/conversations/{conversation_id}/pins": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Conversation Pins */
+    get: operations["read_conversation_pins_api_v1_conversations__conversation_id__pins_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/conversations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Conversations */
+    get: operations["read_conversations_api_v1_conversations_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/conversations/{conversation_id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Mark Read */
+    post: operations["mark_read_api_v1_conversations__conversation_id__read_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/conversations/direct/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Direct Room */
+    post: operations["create_direct_room_api_v1_conversations_direct__user_id__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/friend-requests": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Friend Requests */
+    get: operations["read_friend_requests_api_v1_friend_requests_get"];
+    put?: never;
+    /** Create Friend Request */
+    post: operations["create_friend_request_api_v1_friend_requests_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/friends": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Friends */
+    get: operations["read_friends_api_v1_friends_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/me/following": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Following */
+    get: operations["read_following_api_v1_me_following_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/me/followers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Followers */
+    get: operations["read_followers_api_v1_me_followers_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/lookup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Lookup User By Friend Code */
+    get: operations["lookup_user_by_friend_code_api_v1_users_lookup_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/friend-requests/{request_id}/accept": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Accept Friend Request */
+    post: operations["accept_friend_request_api_v1_friend_requests__request_id__accept_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/friend-requests/{request_id}/reject": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reject Friend Request */
+    post: operations["reject_friend_request_api_v1_friend_requests__request_id__reject_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/friend-requests/{request_id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Request */
+    post: operations["cancel_request_api_v1_friend_requests__request_id__cancel_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/friends/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Friend */
+    delete: operations["delete_friend_api_v1_friends__user_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/users/{user_id}/follow": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Follow */
+    post: operations["create_follow_api_v1_users__user_id__follow_post"];
+    /** Delete Follow */
+    delete: operations["delete_follow_api_v1_users__user_id__follow_delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/blocks/{user_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Block */
+    post: operations["create_block_api_v1_blocks__user_id__post"];
+    /** Delete Block */
+    delete: operations["delete_block_api_v1_blocks__user_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/health/live": {
     parameters: {
       query?: never;
@@ -1084,6 +1391,84 @@ export interface components {
       /** File */
       file: string;
     };
+    /** ChatAuthorResponse */
+    ChatAuthorResponse: {
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+      /** Display Name */
+      display_name: string;
+      /** Avatar Url */
+      avatar_url: string | null;
+    };
+    /** ConversationListResponse */
+    ConversationListResponse: {
+      /** Conversations */
+      conversations: components["schemas"]["ConversationResponse"][];
+    };
+    /** ConversationReadRequest */
+    ConversationReadRequest: {
+      /**
+       * Message Id
+       * Format: uuid
+       */
+      message_id: string;
+    };
+    /** ConversationReadResponse */
+    ConversationReadResponse: {
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      /** Meal Id */
+      meal_id?: string | null;
+      /**
+       * Message Id
+       * Format: uuid
+       */
+      message_id: string;
+      /**
+       * Read At
+       * Format: date-time
+       */
+      read_at: string;
+    };
+    /** ConversationResponse */
+    ConversationResponse: {
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "meal" | "direct";
+      /**
+       * Category
+       * @enum {string}
+       */
+      category: "meal" | "direct" | "friends";
+      /** Meal Id */
+      meal_id?: string | null;
+      /** Meal Title */
+      meal_title?: string | null;
+      /** Meal Status */
+      meal_status?:
+        | ("open" | "awaiting_host_decision" | "voting" | "decided" | "cancelled" | "completed")
+        | null;
+      other_user?: components["schemas"]["ChatAuthorResponse"] | null;
+      latest_message: components["schemas"]["MessageResponse"] | null;
+      /**
+       * Unread Count
+       * @default 0
+       */
+      unread_count: number;
+    };
     /** CuisineCreate */
     CuisineCreate: {
       /** Slug */
@@ -1123,6 +1508,15 @@ export interface components {
       icon_key?: string | null;
       /** Is Active */
       is_active?: boolean | null;
+    };
+    /** DirectConversationResponse */
+    DirectConversationResponse: {
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      other_user: components["schemas"]["ChatAuthorResponse"];
     };
     /**
      * ExploreAppSignalsResponse
@@ -1326,6 +1720,117 @@ export interface components {
       /** Favorited */
       favorited: boolean;
     };
+    /** FollowSummaryResponse */
+    FollowSummaryResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Display Name */
+      display_name: string;
+      /** Avatar Url */
+      avatar_url: string | null;
+      /**
+       * Avatar Source
+       * @enum {string}
+       */
+      avatar_source: "builtin" | "google" | "url";
+      /** Avatar Asset Id */
+      avatar_asset_id: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /**
+     * FriendLookupResponse
+     * @description A friend-code result with current relationship state / 好友碼查詢結果。
+     */
+    FriendLookupResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Display Name */
+      display_name: string;
+      /** Avatar Url */
+      avatar_url: string | null;
+      /**
+       * Avatar Source
+       * @enum {string}
+       */
+      avatar_source: "builtin" | "google" | "url";
+      /** Avatar Asset Id */
+      avatar_asset_id: string | null;
+      /** Conversation Id */
+      conversation_id?: string | null;
+      relationship: components["schemas"]["RelationshipStateResponse"];
+    };
+    /** FriendRequestCreateRequest */
+    FriendRequestCreateRequest: {
+      /**
+       * User Id
+       * Format: uuid
+       */
+      user_id: string;
+    };
+    /** FriendRequestResponse */
+    FriendRequestResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Requester Id
+       * Format: uuid
+       */
+      requester_id: string;
+      /**
+       * Recipient Id
+       * Format: uuid
+       */
+      recipient_id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "pending" | "accepted" | "rejected" | "cancelled";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Responded At */
+      responded_at?: string | null;
+    };
+    /**
+     * FriendSummaryResponse
+     * @description Minimal profile data shown in the friends hub / 好友頁顯示的最小個人資料。
+     */
+    FriendSummaryResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Display Name */
+      display_name: string;
+      /** Avatar Url */
+      avatar_url: string | null;
+      /**
+       * Avatar Source
+       * @enum {string}
+       */
+      avatar_source: "builtin" | "google" | "url";
+      /** Avatar Asset Id */
+      avatar_asset_id: string | null;
+      /** Conversation Id */
+      conversation_id?: string | null;
+    };
     /** GeocodeRequest */
     GeocodeRequest: {
       /** Address */
@@ -1410,33 +1915,15 @@ export interface components {
       restaurants: components["schemas"]["MapRestaurantResponse"][];
     };
     /**
-     * MapSearchLocationResponse
-     * @description External location candidate / 外部地區定位候選。
-     */
-    MapSearchLocationResponse: {
-      /** Label */
-      label: string;
-      /** Region */
-      region?: string | null;
-      /** Latitude */
-      latitude: number;
-      /** Longitude */
-      longitude: number;
-      /** Source */
-      source: string;
-    };
-    /**
      * MapSearchResponse
-     * @description Grouped map search results / 分組的地圖搜尋結果。
+     * @description Published restaurant search results / 已發布店家搜尋結果。
      */
     MapSearchResponse: {
       /**
        * Status
-       * @enum {string}
+       * @constant
        */
-      status: "ok" | "partial";
-      /** Locations */
-      locations: components["schemas"]["MapSearchLocationResponse"][];
+      status: "ok";
       /** Restaurants */
       restaurants: components["schemas"]["MapRestaurantResponse"][];
     };
@@ -1597,6 +2084,87 @@ export interface components {
        */
       candidate_id: string;
     };
+    /** MessagePageResponse */
+    MessagePageResponse: {
+      /** Messages */
+      messages: components["schemas"]["MessageResponse"][];
+      /** Next Cursor */
+      next_cursor: string | null;
+    };
+    /** MessageReplyResponse */
+    MessageReplyResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      sender: components["schemas"]["ChatAuthorResponse"];
+      /** Content */
+      content: string;
+      /**
+       * Is Recalled
+       * @default false
+       */
+      is_recalled: boolean;
+    };
+    /** MessageResponse */
+    MessageResponse: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Conversation Id
+       * Format: uuid
+       */
+      conversation_id: string;
+      /**
+       * Conversation Kind
+       * @enum {string}
+       */
+      conversation_kind: "meal" | "direct";
+      /** Meal Id */
+      meal_id?: string | null;
+      sender: components["schemas"]["ChatAuthorResponse"];
+      /** Content */
+      content: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Is Recalled
+       * @default false
+       */
+      is_recalled: boolean;
+      /** Recalled At */
+      recalled_at?: string | null;
+      /**
+       * Can Recall
+       * @default false
+       */
+      can_recall: boolean;
+      /**
+       * Is Mine
+       * @default false
+       */
+      is_mine: boolean;
+      reply_to?: components["schemas"]["MessageReplyResponse"] | null;
+      /**
+       * Is Pinned
+       * @default false
+       */
+      is_pinned: boolean;
+      /** Pinned At */
+      pinned_at?: string | null;
+      /**
+       * Can Pin
+       * @default false
+       */
+      can_pin: boolean;
+    };
     /** MyProfileResponse */
     MyProfileResponse: {
       /**
@@ -1619,8 +2187,21 @@ export interface components {
       avatar_asset_id: string | null;
       /** Tags */
       tags: components["schemas"]["ProfileTagResponse"][];
+      /**
+       * Accept Stranger Messages
+       * @default true
+       */
+      accept_stranger_messages: boolean;
+      relationship?: components["schemas"]["RelationshipStateResponse"] | null;
       /** Email */
       email: string;
+      /** Friend Code */
+      friend_code: string;
+    };
+    /** PinnedMessagesResponse */
+    PinnedMessagesResponse: {
+      /** Messages */
+      messages: components["schemas"]["MessageResponse"][];
     };
     /** ProfileReviewListResponse */
     ProfileReviewListResponse: {
@@ -1712,6 +2293,52 @@ export interface components {
       avatar_asset_id: string | null;
       /** Tags */
       tags: components["schemas"]["ProfileTagResponse"][];
+      /**
+       * Accept Stranger Messages
+       * @default true
+       */
+      accept_stranger_messages: boolean;
+      relationship?: components["schemas"]["RelationshipStateResponse"] | null;
+    };
+    /** RelationshipStateResponse */
+    RelationshipStateResponse: {
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        | "self"
+        | "none"
+        | "friends"
+        | "outgoing_pending"
+        | "incoming_pending"
+        | "blocked_by_me"
+        | "blocked_me";
+      /** Request Id */
+      request_id?: string | null;
+      /** Conversation Id */
+      conversation_id?: string | null;
+      /**
+       * Can Message
+       * @default false
+       */
+      can_message: boolean;
+      /**
+       * Can Add Friend
+       * @default false
+       */
+      can_add_friend: boolean;
+      /**
+       * Can Accept Friend Request
+       * @default false
+       */
+      can_accept_friend_request: boolean;
+      /**
+       * Follow Status
+       * @default none
+       * @enum {string}
+       */
+      follow_status: "none" | "following" | "followed_by" | "mutual";
     };
     /** RestaurantCreate */
     RestaurantCreate: {
@@ -2038,6 +2665,11 @@ export interface components {
       /** Reason Ids */
       reason_ids?: string[] | null;
     };
+    /** SocialActionResponse */
+    SocialActionResponse: {
+      relationship: components["schemas"]["RelationshipStateResponse"];
+      request?: components["schemas"]["FriendRequestResponse"] | null;
+    };
     /** UserProfileUpdate */
     UserProfileUpdate: {
       /** Display Name */
@@ -2050,6 +2682,8 @@ export interface components {
       avatar_asset_id?: string | null;
       /** Tags */
       tags?: string[] | null;
+      /** Accept Stranger Messages */
+      accept_stranger_messages?: boolean | null;
     };
     /** UserResponse */
     UserResponse: {
@@ -3314,7 +3948,9 @@ export interface operations {
       path: {
         user_id: string;
       };
-      cookie?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
     };
     requestBody?: never;
     responses: {
@@ -4463,6 +5099,703 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["MealResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_messages_api_v1_meals__meal_id__messages_get: {
+    parameters: {
+      query?: {
+        cursor?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        meal_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MessagePageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_conversation_history_api_v1_conversations__conversation_id__messages_get: {
+    parameters: {
+      query?: {
+        cursor?: string | null;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MessagePageResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_meal_pins_api_v1_meals__meal_id__pins_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        meal_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PinnedMessagesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_conversation_pins_api_v1_conversations__conversation_id__pins_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PinnedMessagesResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_conversations_api_v1_conversations_get: {
+    parameters: {
+      query?: {
+        kind?: "meal" | "direct" | "friends";
+      };
+      header?: never;
+      path?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationListResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  mark_read_api_v1_conversations__conversation_id__read_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        conversation_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConversationReadRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ConversationReadResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_direct_room_api_v1_conversations_direct__user_id__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DirectConversationResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_friend_requests_api_v1_friend_requests_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FriendRequestResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_friend_request_api_v1_friend_requests_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FriendRequestCreateRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SocialActionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_friends_api_v1_friends_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FriendSummaryResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_following_api_v1_me_following_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FollowSummaryResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_followers_api_v1_me_followers_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FollowSummaryResponse"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  lookup_user_by_friend_code_api_v1_users_lookup_get: {
+    parameters: {
+      query: {
+        friend_code: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FriendLookupResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  accept_friend_request_api_v1_friend_requests__request_id__accept_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SocialActionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reject_friend_request_api_v1_friend_requests__request_id__reject_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SocialActionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  cancel_request_api_v1_friend_requests__request_id__cancel_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        request_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SocialActionResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_friend_api_v1_friends__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RelationshipStateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_follow_api_v1_users__user_id__follow_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RelationshipStateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_follow_api_v1_users__user_id__follow_delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RelationshipStateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_block_api_v1_blocks__user_id__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RelationshipStateResponse"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  delete_block_api_v1_blocks__user_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        user_id: string;
+      };
+      cookie?: {
+        bitemap_user_session?: string | null;
+      };
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RelationshipStateResponse"];
         };
       };
       /** @description Validation Error */

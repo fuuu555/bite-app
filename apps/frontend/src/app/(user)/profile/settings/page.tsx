@@ -1,4 +1,4 @@
-import { ProfileSettingsPage } from "@/components/user/profile-settings-page";
+import { ProfileSettingsPage } from "@/features/profile/components/profile-settings-page";
 
 export default function ProfileSettingsRoute() {
   return <ProfileSettingsPage />;

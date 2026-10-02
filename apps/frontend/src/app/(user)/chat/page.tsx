@@ -1,5 +1,5 @@
-import { ComingSoon } from "@/components/user/coming-soon";
+import { ChatPage } from "@/features/chat/components/chat-page";
 
-export default function ChatPage() {
-  return <ComingSoon title="聊天室" description="聊天室尚未開放。" />;
+export default function ChatRoute() {
+  return <ChatPage />;
 }
