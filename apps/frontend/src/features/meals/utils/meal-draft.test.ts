@@ -48,6 +48,21 @@ describe("meal draft", () => {
     expect(manuallyCleared.title).toBe("");
   });
 
+  it("keeps private meal conditions and defaults older drafts to no condition", () => {
+    const parsed = parseMealDraft({
+      ...createEmptyMealDraft(),
+      visibility: "private",
+      privateCondition: "female_only",
+    });
+    const olderDraft = parseMealDraft({
+      ...createEmptyMealDraft(),
+      visibility: "private",
+    });
+
+    expect(parsed?.privateCondition).toBe("female_only");
+    expect(olderDraft?.privateCondition).toBeNull();
+  });
+
   it("calculates a public join deadline from local date and time", () => {
     const draft = {
       ...createEmptyMealDraft(),

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { departedMealMembers, type Meal, type MealMember } from "./meals-api";
+import {
+  departedMealMembers,
+  privateMealConditionLabel,
+  type Meal,
+  type MealMember,
+} from "./meals-api";
 
 function member(userId: string, status: MealMember["membership_status"]): MealMember {
   return {
@@ -18,6 +23,7 @@ function meal(members: MealMember[]): Meal {
   return {
     id: "meal-1",
     visibility: "public",
+    private_condition: null,
     title: "測試飯局",
     description: null,
     scheduled_at: "2026-10-01T12:00:00Z",
@@ -52,5 +58,13 @@ describe("departedMealMembers", () => {
     const applicant = member("applicant", "pending");
 
     expect(departedMealMembers(meal([host, applicant]), meal([host]))).toEqual([]);
+  });
+});
+
+describe("privateMealConditionLabel", () => {
+  it("shows the selected condition without implying verification", () => {
+    expect(privateMealConditionLabel(null)).toBe("不限性別");
+    expect(privateMealConditionLabel("male_only")).toBe("限男性");
+    expect(privateMealConditionLabel("female_only")).toBe("限女性");
   });
 });

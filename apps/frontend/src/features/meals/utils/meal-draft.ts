@@ -5,6 +5,7 @@ import { useSyncExternalStore } from "react";
 import type {
   MealCreateInput,
   MealRestaurant,
+  PrivateMealCondition,
   MealVisibility,
 } from "@/features/meals/api/meals-api";
 
@@ -21,6 +22,7 @@ export type MealDraftRestaurant = Pick<
 export type MealDraft = {
   version: 1;
   visibility: MealVisibility;
+  privateCondition: PrivateMealCondition | null;
   title: string;
   titleTouched: boolean;
   description: string;
@@ -54,6 +56,7 @@ export function createEmptyMealDraft(): MealDraft {
   return {
     version: 1,
     visibility: "public",
+    privateCondition: null,
     title: "",
     titleTouched: false,
     description: "",
@@ -69,6 +72,14 @@ export function createEmptyMealDraft(): MealDraft {
 export function parseMealDraft(value: unknown): MealDraft | null {
   if (!isRecord(value) || value.version !== 1) return null;
   if (value.visibility !== "public" && value.visibility !== "private") return null;
+  const privateCondition = value.privateCondition === undefined ? null : value.privateCondition;
+  if (
+    privateCondition !== null &&
+    privateCondition !== "male_only" &&
+    privateCondition !== "female_only"
+  ) {
+    return null;
+  }
   if (value.restaurantMode !== "direct" && value.restaurantMode !== "vote") return null;
   if (
     typeof value.title !== "string" ||
@@ -93,6 +104,7 @@ export function parseMealDraft(value: unknown): MealDraft | null {
   return {
     version: 1,
     visibility: value.visibility,
+    privateCondition,
     title: value.title.slice(0, 120),
     titleTouched: value.titleTouched,
     description: value.description.slice(0, 500),

@@ -30,6 +30,7 @@ from api.domain.schemas import (
     MealRestaurantResponse,
     MealStatus,
     MealVisibility,
+    PrivateMealCondition,
 )
 from api.services.profile import avatar_url_for_profile
 
@@ -153,6 +154,7 @@ async def create_meal(
     meal = MealEvent(
         host_user_id=host.id,
         visibility=payload.visibility,
+        private_condition=payload.private_condition,
         title=payload.title,
         description=payload.description,
         scheduled_at=payload.scheduled_at,
@@ -550,6 +552,7 @@ async def meal_response(
     return MealResponse(
         id=meal.id,
         visibility=cast(MealVisibility, meal.visibility),
+        private_condition=cast(PrivateMealCondition | None, meal.private_condition),
         title=meal.title,
         description=meal.description,
         scheduled_at=meal.scheduled_at,

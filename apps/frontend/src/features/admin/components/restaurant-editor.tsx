@@ -24,6 +24,7 @@ const emptyForm = {
   menuUrl: "",
   primaryCuisineId: "",
   priceRange: "" as PriceRange | "",
+  googleLookupEnabled: true,
   latitude: null as number | null,
   longitude: null as number | null,
 };
@@ -40,10 +41,11 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [menus, setMenus] = useState<RestaurantMenu[]>([]);
   const [photos, setPhotos] = useState<RestaurantPhoto[]>([]);
+  const [draggedPhotoId, setDraggedPhotoId] = useState<string | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [contentSaving, setContentSaving] = useState(false);
   const [menuDraft, setMenuDraft] = useState({ title: "菜單", url: "" });
-  const [photoDraft, setPhotoDraft] = useState({ url: "", altText: "", sortOrder: "0" });
+  const [photoDraft, setPhotoDraft] = useState({ url: "", altText: "" });
   const [cuisines, setCuisines] = useState<Cuisine[]>([]);
   const [loading, setLoading] = useState(Boolean(restaurantId));
   const [saving, setSaving] = useState(false);
@@ -73,6 +75,7 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
           menuUrl: item.menu_url ?? "",
           primaryCuisineId: item.primary_cuisine_id ?? "",
           priceRange: item.price_range ?? "",
+          googleLookupEnabled: item.google_lookup_enabled,
           latitude: item.latitude,
           longitude: item.longitude,
         });
@@ -99,6 +102,7 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
       menu_url: form.menuUrl || null,
       primary_cuisine_id: form.primaryCuisineId || null,
       price_range: form.priceRange || null,
+      google_lookup_enabled: form.googleLookupEnabled,
       latitude: form.latitude,
       longitude: form.longitude,
     };
@@ -232,11 +236,13 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
         body: JSON.stringify({
           url: photoDraft.url,
           alt_text: photoDraft.altText || null,
-          sort_order: Number(photoDraft.sortOrder) || 0,
+          sort_order: photos.length
+            ? Math.max(...photos.map((photo) => photo.sort_order)) + 1
+            : 0,
         }),
       });
       setPhotos((current) => [...current, photo]);
-      setPhotoDraft({ url: "", altText: "", sortOrder: "0" });
+      setPhotoDraft({ url: "", altText: "" });
       setMessage("照片連結已新增。 ");
       setContentNotice({ tone: "success", text: "照片連結已新增。" });
     } catch {
@@ -245,6 +251,52 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
     } finally {
       setContentSaving(false);
     }
+  }
+
+  async function updatePhotoOrder(nextPhotos: RestaurantPhoto[]) {
+    if (!restaurant) return;
+    setContentSaving(true);
+    setContentNotice(null);
+    const orderedPhotos = nextPhotos.map((photo, index) => ({ ...photo, sort_order: index }));
+    setPhotos(orderedPhotos);
+    try {
+      const savedPhotos = await Promise.all(
+        orderedPhotos.map((photo) =>
+          adminApi<RestaurantPhoto>(`/restaurants/${restaurant.id}/photos/${photo.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ sort_order: photo.sort_order }),
+          }),
+        ),
+      );
+      setPhotos(savedPhotos.sort((left, right) => left.sort_order - right.sort_order));
+      setContentNotice({ tone: "success", text: "照片順序已更新。" });
+    } catch {
+      setContentNotice({ tone: "error", text: "照片順序更新失敗，請重新整理後再試。" });
+    } finally {
+      setContentSaving(false);
+    }
+  }
+
+  function movePhoto(photoId: string, direction: -1 | 1) {
+    const currentIndex = photos.findIndex((photo) => photo.id === photoId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= photos.length) return;
+    const nextPhotos = [...photos];
+    const [photo] = nextPhotos.splice(currentIndex, 1);
+    nextPhotos.splice(nextIndex, 0, photo);
+    void updatePhotoOrder(nextPhotos);
+  }
+
+  function dropPhoto(targetPhotoId: string) {
+    if (!draggedPhotoId || draggedPhotoId === targetPhotoId) return;
+    const sourceIndex = photos.findIndex((photo) => photo.id === draggedPhotoId);
+    const targetIndex = photos.findIndex((photo) => photo.id === targetPhotoId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const nextPhotos = [...photos];
+    const [photo] = nextPhotos.splice(sourceIndex, 1);
+    nextPhotos.splice(targetIndex, 0, photo);
+    setDraggedPhotoId(null);
+    void updatePhotoOrder(nextPhotos);
   }
 
   async function removePhoto(photoId: string) {
@@ -393,6 +445,19 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
                 目前先支援外部菜單連結，圖片/PDF 菜單後續再擴充。
               </small>
             </label>
+            <label className="restaurant-google-toggle form-grid__wide">
+              <input
+                type="checkbox"
+                checked={form.googleLookupEnabled}
+                onChange={(event) =>
+                  setForm({ ...form, googleLookupEnabled: event.target.checked })
+                }
+              />
+              <span>
+                <strong>啟用 Google 自動搜尋</strong>
+                <small>儲存與探索時取得 Google 評分／評論數；測試資料可取消勾選以避免 API 請求。</small>
+              </span>
+            </label>
             <label>
               主要料理
               <select
@@ -448,6 +513,16 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
             <div>
               <dt>地址</dt>
               <dd>{form.address || "尚未填寫"}</dd>
+            </div>
+            <div>
+              <dt>Google 店家</dt>
+              <dd>
+                {!form.googleLookupEnabled
+                  ? "已停用，不會呼叫 Google API"
+                  : restaurant?.google_place_id
+                    ? "已自動綁定"
+                    : "儲存時自動搜尋"}
+              </dd>
             </div>
             <div>
               <dt>菜單</dt>
@@ -562,7 +637,7 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
             </section>
 
             <section className="editor-content-card" aria-labelledby="restaurant-photos-title">
-              <h3 id="restaurant-photos-title">照片連結</h3>
+              <h3 id="restaurant-photos-title">照片管理</h3>
               <form onSubmit={addPhoto} className="content-entry-form">
                 <label className="content-entry-field">
                   <span>照片網址</span>
@@ -588,39 +663,49 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
                     placeholder="例如：店面外觀"
                   />
                 </label>
-                <label className="content-entry-field">
-                  <span>
-                    顯示順序 <small>數字越小越前面</small>
-                  </span>
-                  <input
-                    aria-label="照片顯示順序"
-                    type="number"
-                    min="0"
-                    max="1000"
-                    value={photoDraft.sortOrder}
-                    onChange={(event) =>
-                      setPhotoDraft({ ...photoDraft, sortOrder: event.target.value })
-                    }
-                  />
-                </label>
                 <button type="submit" className="button button--secondary" disabled={contentSaving}>
                   新增照片
                 </button>
               </form>
+              <p className="field-hint">新增後會排在最後；可拖曳或使用上移／下移調整，第一張會作為首圖。</p>
               {photos.length > 0 ? (
-                <ul className="content-entry-list">
-                  {photos.map((photo) => (
-                    <li key={photo.id}>
-                      <a href={photo.url} target="_blank" rel="noreferrer">
-                        {photo.alt_text || photo.url}
+                <ul className="photo-entry-list" aria-label="照片排序列表">
+                  {photos.map((photo, index) => (
+                    <li
+                      key={photo.id}
+                      className={draggedPhotoId === photo.id ? "is-dragging" : ""}
+                      draggable={!contentSaving}
+                      onDragStart={() => setDraggedPhotoId(photo.id)}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={() => dropPhoto(photo.id)}
+                      onDragEnd={() => setDraggedPhotoId(null)}
+                    >
+                      <span className="photo-entry-drag-handle" aria-hidden="true">⋮⋮</span>
+                      <a href={photo.url} target="_blank" rel="noreferrer" className="photo-entry-preview">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={photo.url} alt={photo.alt_text || "餐廳照片"} loading="lazy" />
                       </a>
-                      <button
-                        type="button"
-                        onClick={() => setContentToRemove({ kind: "photo", id: photo.id })}
-                        disabled={contentSaving}
-                      >
-                        移除
-                      </button>
+                      <div className="photo-entry-info">
+                        <strong>
+                          第 {index + 1} 張 {index === 0 ? <span>首圖</span> : null}
+                        </strong>
+                        <span>{photo.alt_text || "尚未填寫照片說明"}</span>
+                      </div>
+                      <div className="photo-entry-actions">
+                        <button type="button" onClick={() => movePhoto(photo.id, -1)} disabled={contentSaving || index === 0}>
+                          上移
+                        </button>
+                        <button type="button" onClick={() => movePhoto(photo.id, 1)} disabled={contentSaving || index === photos.length - 1}>
+                          下移
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setContentToRemove({ kind: "photo", id: photo.id })}
+                          disabled={contentSaving}
+                        >
+                          移除
+                        </button>
+                      </div>
                     </li>
                   ))}
                 </ul>

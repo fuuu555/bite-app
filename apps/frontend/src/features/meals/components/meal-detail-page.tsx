@@ -23,6 +23,7 @@ import {
   joinMeal,
   leaveMeal,
   removeMealMember,
+  privateMealConditionLabel,
   type Meal,
   MealsApiError,
 } from "@/features/meals/api/meals-api";
@@ -201,6 +202,11 @@ export function MealDetailPage({ mealId }: { mealId: string }) {
           <div className="meal-detail-page__topline">
             <span className={`meal-status is-${meal.status}`}>{statusLabel(meal)}</span>
             <span>{meal.visibility === "private" ? "私人約飯" : "公開加入"}</span>
+            {meal.visibility === "private" ? (
+              <span className="meal-condition-badge">
+                {privateMealConditionLabel(meal.private_condition)}
+              </span>
+            ) : null}
           </div>
           <p className="meal-detail-page__host">
             {meal.host.display_name} <span>發起人</span>

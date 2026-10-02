@@ -24,6 +24,11 @@ from api.domain.schemas import (
     MapCuisineResponse,
     PriceRange,
 )
+from api.integrations.google_places import (
+    GooglePlaceLookup,
+    fetch_google_signals,
+    fetch_google_signals_batch,
+)
 from api.services.ranking import RestaurantRanking, stable_restaurant_ranking
 from api.services.reviews import get_restaurant_app_stats
 
@@ -83,14 +88,31 @@ async def query_explore_restaurants(
         distances = {row[0].id: float(row[1]) for row in rows}
     ranked = ranking.rank(restaurants)
     app_stats = await get_restaurant_app_stats(session, [item.id for item in restaurants])
+    explore_items = [item for item in ranked if _is_explore_ready(item)]
+    enabled_items = [item for item in explore_items if item.google_lookup_enabled]
+    google_signals = await fetch_google_signals_batch(
+        [
+            GooglePlaceLookup(
+                place_id=item.google_place_id,
+                name=item.name,
+                address=item.address,
+                latitude=item.latitude,
+                longitude=item.longitude,
+            )
+            for item in enabled_items
+        ]
+    )
+    google_by_restaurant_id = dict(
+        zip((item.id for item in enabled_items), google_signals, strict=True)
+    )
     responses = [
         _summary_response(
             item,
             distance_meters=distances.get(item.id),
             app_signals=app_stats.get(item.id),
+            google_signals=google_by_restaurant_id.get(item.id),
         )
-        for item in ranked
-        if _is_explore_ready(item)
+        for item in explore_items
     ]
     return ExploreRestaurantsResponse(
         query=query,
@@ -132,6 +154,17 @@ async def get_explore_restaurant(
             float(row[1]) if origin is not None and row and row[1] is not None else None
         ),
         app_signals=(await get_restaurant_app_stats(session, [restaurant.id])).get(restaurant.id),
+        google_signals=(
+            await fetch_google_signals(
+                place_id=restaurant.google_place_id,
+                name=restaurant.name,
+                address=restaurant.address,
+                latitude=restaurant.latitude,
+                longitude=restaurant.longitude,
+            )
+            if restaurant.google_lookup_enabled
+            else None
+        ),
     )
     return ExploreRestaurantDetailResponse(
         **summary.model_dump(),
@@ -163,6 +196,7 @@ def _summary_response(
     *,
     distance_meters: float | None = None,
     app_signals: ExploreAppSignalsResponse | None = None,
+    google_signals: ExploreGoogleSignalsResponse | None = None,
 ) -> ExploreRestaurantSummaryResponse:
     cuisine = restaurant.primary_cuisine
     if cuisine is None or restaurant.price_range is None:
@@ -182,7 +216,7 @@ def _summary_response(
         photo_url=restaurant.photos[0].url if restaurant.photos else None,
         distance_meters=distance_meters,
         app=app_signals or ExploreAppSignalsResponse(),
-        google=ExploreGoogleSignalsResponse(),
+        google=google_signals or ExploreGoogleSignalsResponse(),
     )
 
 

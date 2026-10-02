@@ -741,6 +741,147 @@ select:hover {
   opacity: 0.55;
 }
 
+.restaurant-google-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  background: #fbfaf7;
+}
+
+.restaurant-google-toggle input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--color-action);
+}
+
+.restaurant-google-toggle span {
+  display: grid;
+  gap: 4px;
+}
+
+.restaurant-google-toggle small {
+  color: var(--color-ink-muted);
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.photo-entry-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.photo-entry-list li {
+  display: grid;
+  grid-template-columns: auto 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  transition: border-color 120ms ease, background 120ms ease, opacity 120ms ease;
+}
+
+.photo-entry-list li.is-dragging {
+  border-color: var(--color-action);
+  background: #f5fbf8;
+  opacity: 0.65;
+}
+
+.photo-entry-drag-handle {
+  color: var(--color-ink-muted);
+  cursor: grab;
+  font-size: 1.1rem;
+  letter-spacing: -0.18em;
+  user-select: none;
+}
+
+.photo-entry-preview {
+  display: block;
+  width: 64px;
+  height: 52px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #f1f0eb;
+}
+
+.photo-entry-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-entry-info {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.photo-entry-info strong {
+  color: var(--color-ink);
+}
+
+.photo-entry-info strong span {
+  margin-left: 6px;
+  color: var(--color-success, #16805d);
+  font-size: 0.72rem;
+}
+
+.photo-entry-info > span {
+  overflow: hidden;
+  color: var(--color-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.photo-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.photo-entry-actions button {
+  border: 0;
+  background: transparent;
+  color: var(--color-action-hover);
+  cursor: pointer;
+  font-size: 0.76rem;
+}
+
+.photo-entry-actions button:last-child {
+  color: var(--color-danger);
+}
+
+.photo-entry-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+@media (max-width: 720px) {
+  .photo-entry-list li {
+    grid-template-columns: auto 56px minmax(0, 1fr);
+  }
+
+  .photo-entry-preview {
+    width: 56px;
+    height: 48px;
+  }
+
+  .photo-entry-actions {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+  }
+}
+
 .settings-grid {
   display: grid;
   grid-template-columns: minmax(280px, 0.85fr) minmax(360px, 1.35fr);
@@ -4622,6 +4763,15 @@ select:hover {
   color: var(--color-success);
 }
 
+.meal-condition-badge {
+  padding: 4px 7px;
+  border: 1px solid rgb(242 107 79 / 24%);
+  border-radius: 999px;
+  background: #fff8f4;
+  color: var(--color-action-hover);
+  white-space: nowrap;
+}
+
 .meal-card__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 100px;
@@ -4634,9 +4784,17 @@ select:hover {
 .meal-card__restaurant small,
 .meal-card__undecided,
 .meal-detail__panel header p,
+.meal-condition-note,
 .meal-create-sheet label > span,
 .meal-create-sheet label small {
   color: var(--color-ink-muted);
+}
+
+.meal-condition-note {
+  grid-column: 1 / -1;
+  margin: 0 0 10px;
+  font-size: 0.78rem;
+  line-height: 1.5;
 }
 
 .meal-card__host {

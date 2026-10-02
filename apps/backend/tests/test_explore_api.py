@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from collections.abc import Sequence
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -11,7 +12,9 @@ from sqlalchemy import delete
 
 from api.core.database import session_factory
 from api.domain.models import Cuisine, Restaurant, RestaurantMenu, RestaurantPhoto
+from api.domain.schemas import ExploreGoogleSignalsResponse
 from api.main import app
+from api.services import explore as explore_service
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_DATABASE_TESTS") != "1",
@@ -20,8 +23,22 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.asyncio
-async def test_explore_search_and_detail_share_published_restaurants() -> None:
+async def test_explore_search_and_detail_share_published_restaurants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Top 3, full results, and detail use the same published restaurant source."""
+    async def fake_google_batch(
+        lookups: Sequence[object],
+    ) -> list[ExploreGoogleSignalsResponse]:
+        assert len(lookups) == 1
+        return [ExploreGoogleSignalsResponse(rating=4.5, review_count=12)] * len(lookups)
+
+    async def empty_google_detail(**_: object) -> None:
+        return None
+
+    monkeypatch.setattr(explore_service, "fetch_google_signals_batch", fake_google_batch)
+    monkeypatch.setattr(explore_service, "fetch_google_signals", empty_google_detail)
+
     unique = uuid.uuid4().hex
     cuisine_id = uuid.uuid4()
     restaurant_ids = [uuid.uuid4() for _ in range(3)]
@@ -59,6 +76,7 @@ async def test_explore_search_and_detail_share_published_restaurants() -> None:
                     price_range="under_200",
                     status="published",
                     source_type="manual",
+                    google_lookup_enabled=False,
                     latitude=24.958,
                     longitude=121.23,
                 ),
@@ -110,7 +128,14 @@ async def test_explore_search_and_detail_share_published_restaurants() -> None:
             ]
             assert payload["top_restaurants"] == payload["restaurants"]
             assert payload["restaurants"][0]["app"]["revisit_rate"] is None
-            assert payload["restaurants"][0]["google"]["rating"] is None
+            assert payload["restaurants"][0]["google"] == {
+                "rating": 4.5,
+                "review_count": 12,
+            }
+            assert payload["restaurants"][1]["google"] == {
+                "rating": None,
+                "review_count": None,
+            }
             assert payload["restaurants"][0]["photo_url"] == "https://example.test/photo.jpg"
 
             detail = await client.get(f"/api/v1/explore/restaurants/{restaurant_ids[0]}")

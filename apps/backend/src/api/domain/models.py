@@ -274,6 +274,8 @@ class Restaurant(Base):
     name: Mapped[str] = mapped_column(String(160))
     address: Mapped[str] = mapped_column(Text)
     menu_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    google_place_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    google_lookup_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     primary_cuisine_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("cuisines.id", ondelete="RESTRICT"), nullable=True
     )
@@ -607,6 +609,11 @@ class MealEvent(Base):
     __table_args__ = (
         CheckConstraint("visibility IN ('public', 'private')", name="ck_meal_events_visibility"),
         CheckConstraint(
+            "private_condition IS NULL OR "
+            "(visibility = 'private' AND private_condition IN ('male_only', 'female_only'))",
+            name="ck_meal_events_private_condition",
+        ),
+        CheckConstraint(
             "status IN ('open', 'awaiting_host_decision', 'voting', 'decided', "
             "'cancelled', 'completed')",
             name="ck_meal_events_status",
@@ -620,6 +627,7 @@ class MealEvent(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     visibility: Mapped[str] = mapped_column(String(16))
+    private_condition: Mapped[str | None] = mapped_column(String(16), nullable=True)
     title: Mapped[str] = mapped_column(String(120))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     scheduled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)

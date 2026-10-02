@@ -165,6 +165,7 @@ export function MealCreateDialog({
     try {
       let meal = await createMeal({
         visibility: draft.visibility,
+        private_condition: draft.visibility === "private" ? draft.privateCondition : null,
         title: draft.title.trim(),
         description: draft.description.trim() || null,
         scheduled_at: scheduled.toISOString(),
@@ -216,7 +217,13 @@ export function MealCreateDialog({
                   type="radio"
                   name="visibility"
                   checked={draft.visibility === "public"}
-                  onChange={() => update((current) => ({ ...current, visibility: "public" }))}
+                  onChange={() =>
+                    update((current) => ({
+                      ...current,
+                      visibility: "public",
+                      privateCondition: null,
+                    }))
+                  }
                 />
                 <span>
                   <strong>公開加入</strong>
@@ -245,6 +252,55 @@ export function MealCreateDialog({
                 </span>
               </label>
             </fieldset>
+
+            {draft.visibility === "private" ? (
+              <fieldset className="meal-choice-group">
+                <legend>申請條件</legend>
+                <p className="meal-condition-note">
+                  只作為飯局標示，不會自動驗證或攔截申請，由你自行審核。
+                </p>
+                <label className={draft.privateCondition === null ? "is-selected" : ""}>
+                  <input
+                    type="radio"
+                    name="private-condition"
+                    checked={draft.privateCondition === null}
+                    onChange={() => update((current) => ({ ...current, privateCondition: null }))}
+                  />
+                  <span>
+                    <strong>不限</strong>
+                    <small>依申請審核決定</small>
+                  </span>
+                </label>
+                <label className={draft.privateCondition === "male_only" ? "is-selected" : ""}>
+                  <input
+                    type="radio"
+                    name="private-condition"
+                    checked={draft.privateCondition === "male_only"}
+                    onChange={() =>
+                      update((current) => ({ ...current, privateCondition: "male_only" }))
+                    }
+                  />
+                  <span>
+                    <strong>限男性</strong>
+                    <small>由發起人自行審核</small>
+                  </span>
+                </label>
+                <label className={draft.privateCondition === "female_only" ? "is-selected" : ""}>
+                  <input
+                    type="radio"
+                    name="private-condition"
+                    checked={draft.privateCondition === "female_only"}
+                    onChange={() =>
+                      update((current) => ({ ...current, privateCondition: "female_only" }))
+                    }
+                  />
+                  <span>
+                    <strong>限女性</strong>
+                    <small>由發起人自行審核</small>
+                  </span>
+                </label>
+              </fieldset>
+            ) : null}
 
             <label>
               飯局名稱

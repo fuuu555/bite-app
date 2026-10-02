@@ -1,6 +1,7 @@
 /** Meal and voting API client / 約飯與投票 API Client。 */
 
 export type MealVisibility = "public" | "private";
+export type PrivateMealCondition = "male_only" | "female_only";
 export type MealStatus =
   "open" | "awaiting_host_decision" | "voting" | "decided" | "cancelled" | "completed";
 export type MealMembershipStatus = "host" | "member" | "pending" | "rejected" | "left" | "removed";
@@ -33,6 +34,7 @@ export type MealCandidate = {
 export type Meal = {
   id: string;
   visibility: MealVisibility;
+  private_condition: PrivateMealCondition | null;
   title: string;
   description: string | null;
   scheduled_at: string;
@@ -53,6 +55,7 @@ export type Meal = {
 
 export type MealCreateInput = {
   visibility: MealVisibility;
+  private_condition: PrivateMealCondition | null;
   title: string;
   description: string | null;
   scheduled_at: string;
@@ -61,6 +64,12 @@ export type MealCreateInput = {
   restaurant_mode: "direct" | "vote";
   restaurant_id: string | null;
 };
+
+export function privateMealConditionLabel(condition: PrivateMealCondition | null) {
+  if (condition === "male_only") return "限男性";
+  if (condition === "female_only") return "限女性";
+  return "不限性別";
+}
 
 export function departedMealMembers(previous: Meal, next: Meal) {
   const nextFormalMemberIds = new Set(

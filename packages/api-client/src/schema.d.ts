@@ -2365,6 +2365,8 @@ export interface components {
       address: string;
       /** Menu Url */
       menu_url?: string | null;
+      /** Google Lookup Enabled */
+      google_lookup_enabled?: boolean;
       /** Primary Cuisine Id */
       primary_cuisine_id?: string | null;
       /** Price Range */
@@ -2482,6 +2484,10 @@ export interface components {
       address: string;
       /** Menu Url */
       menu_url: string | null;
+      /** Google Place Id */
+      google_place_id: string | null;
+      /** Google Lookup Enabled */
+      google_lookup_enabled: boolean;
       /** Primary Cuisine Id */
       primary_cuisine_id: string | null;
       primary_cuisine: components["schemas"]["CuisineResponse"] | null;
@@ -2520,6 +2526,8 @@ export interface components {
       address?: string | null;
       /** Menu Url */
       menu_url?: string | null;
+      /** Google Lookup Enabled */
+      google_lookup_enabled?: boolean;
       /** Primary Cuisine Id */
       primary_cuisine_id?: string | null;
       /** Price Range */

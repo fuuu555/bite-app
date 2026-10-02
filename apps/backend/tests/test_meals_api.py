@@ -121,8 +121,25 @@ async def test_public_meal_vote_and_private_application() -> None:
             public_meal = created.json()
             meal_id = public_meal["id"]
             assert public_meal["member_count"] == 1
+            assert public_meal["private_condition"] is None
             assert len(public_meal["candidates"]) == 1
             assert public_meal["candidates"][0]["vote_count"] is None
+
+            invalid_public_condition = await host_client.post(
+                "/api/v1/meals",
+                json={
+                    "visibility": "public",
+                    "private_condition": "male_only",
+                    "title": "公開飯局不應有私人條件",
+                    "description": None,
+                    "scheduled_at": (now + timedelta(hours=2)).isoformat(),
+                    "join_deadline": (now + timedelta(hours=1, minutes=45)).isoformat(),
+                    "capacity": 4,
+                    "restaurant_mode": "direct",
+                    "restaurant_id": str(first_restaurant_id),
+                },
+            )
+            assert invalid_public_condition.status_code == 422
 
             added_candidate = await host_client.post(
                 f"/api/v1/meals/{meal_id}/candidates",
@@ -207,6 +224,7 @@ async def test_public_meal_vote_and_private_application() -> None:
                 "/api/v1/meals",
                 json={
                     "visibility": "private",
+                    "private_condition": "male_only",
                     "title": "審核制飯局",
                     "description": None,
                     "scheduled_at": (now + timedelta(days=3)).isoformat(),
@@ -218,6 +236,7 @@ async def test_public_meal_vote_and_private_application() -> None:
             )
             assert private_created.status_code == 201
             private_meal_id = private_created.json()["id"]
+            assert private_created.json()["private_condition"] == "male_only"
 
             private_before_application = await guest_client.get(f"/api/v1/meals/{private_meal_id}")
             assert private_before_application.status_code == 200

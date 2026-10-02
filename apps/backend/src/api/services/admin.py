@@ -17,6 +17,7 @@ from api.domain.schemas import (
     RestaurantResponse,
     RestaurantUpdate,
 )
+from api.integrations.google_places import find_google_place_id
 
 
 def restaurant_snapshot(restaurant: Restaurant) -> dict[str, Any]:
@@ -25,6 +26,8 @@ def restaurant_snapshot(restaurant: Restaurant) -> dict[str, Any]:
         "name": restaurant.name,
         "address": restaurant.address,
         "menu_url": restaurant.menu_url,
+        "google_place_id": restaurant.google_place_id,
+        "google_lookup_enabled": restaurant.google_lookup_enabled,
         "primary_cuisine_id": str(restaurant.primary_cuisine_id)
         if restaurant.primary_cuisine_id
         else None,
@@ -100,6 +103,13 @@ async def create_restaurant(
     validate_coordinates(payload.latitude, payload.longitude)
     await require_active_cuisine(session, payload.primary_cuisine_id)
     restaurant = Restaurant(**payload.model_dump(), status="draft", source_type="manual")
+    if restaurant.google_lookup_enabled:
+        restaurant.google_place_id = await find_google_place_id(
+            name=restaurant.name,
+            address=restaurant.address,
+            latitude=restaurant.latitude,
+            longitude=restaurant.longitude,
+        )
     session.add(restaurant)
     await session.flush()
     await add_audit_log(session, actor, restaurant, "created", None)
@@ -134,8 +144,21 @@ async def update_restaurant(
         await require_active_cuisine(session, values["primary_cuisine_id"])
     before = restaurant_snapshot(restaurant)
     coordinate_changed = any(key in values for key in ("latitude", "longitude"))
+    google_identity_changed = bool(
+        {"name", "address", "latitude", "longitude"} & values.keys()
+    )
     for field, value in values.items():
         setattr(restaurant, field, value)
+    if google_identity_changed or "google_lookup_enabled" in values:
+        if restaurant.google_lookup_enabled:
+            restaurant.google_place_id = await find_google_place_id(
+                name=restaurant.name,
+                address=restaurant.address,
+                latitude=restaurant.latitude,
+                longitude=restaurant.longitude,
+            )
+        else:
+            restaurant.google_place_id = None
     await session.flush()
     await add_audit_log(
         session,
@@ -188,6 +211,8 @@ def restaurant_response(restaurant: Restaurant) -> RestaurantResponse:
         name=restaurant.name,
         address=restaurant.address,
         menu_url=restaurant.menu_url,
+        google_place_id=restaurant.google_place_id,
+        google_lookup_enabled=restaurant.google_lookup_enabled,
         primary_cuisine_id=restaurant.primary_cuisine_id,
         primary_cuisine=(
             CuisineResponse.model_validate(restaurant.primary_cuisine)

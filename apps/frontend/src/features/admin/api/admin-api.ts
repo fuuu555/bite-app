@@ -16,6 +16,8 @@ export type Restaurant = {
   name: string;
   address: string;
   menu_url: string | null;
+  google_place_id: string | null;
+  google_lookup_enabled: boolean;
   primary_cuisine_id: string | null;
   primary_cuisine: Cuisine | null;
   price_range: PriceRange | null;

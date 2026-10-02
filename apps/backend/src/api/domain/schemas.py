@@ -230,6 +230,7 @@ class RestaurantCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     address: str = Field(min_length=1, max_length=500)
     menu_url: str | None = Field(default=None, max_length=1000, pattern=r"^https?://[^\s]+$")
+    google_lookup_enabled: bool = True
     primary_cuisine_id: uuid.UUID | None = None
     price_range: PriceRange | None = None
     latitude: float | None = None
@@ -246,6 +247,7 @@ class RestaurantUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=160)
     address: str | None = Field(default=None, min_length=1, max_length=500)
     menu_url: str | None = Field(default=None, max_length=1000, pattern=r"^https?://[^\s]+$")
+    google_lookup_enabled: bool = True
     primary_cuisine_id: uuid.UUID | None = None
     price_range: PriceRange | None = None
     latitude: float | None = None
@@ -264,6 +266,8 @@ class RestaurantResponse(BaseModel):
     name: str
     address: str
     menu_url: str | None
+    google_place_id: str | None
+    google_lookup_enabled: bool
     primary_cuisine_id: uuid.UUID | None
     primary_cuisine: CuisineResponse | None
     price_range: PriceRange | None
@@ -636,12 +640,14 @@ MealStatus = Literal[
 ]
 MealMembershipStatus = Literal["host", "member", "pending", "rejected", "left", "removed"]
 MealRestaurantMode = Literal["direct", "vote"]
+PrivateMealCondition = Literal["male_only", "female_only"]
 
 
 class MealCreateRequest(BaseModel):
     """The confirmed fields needed to create a Stage 7 meal / 建立 Stage 7 約飯所需欄位。"""
 
     visibility: MealVisibility
+    private_condition: PrivateMealCondition | None = None
     title: str = Field(min_length=1, max_length=120)
     description: str | None = Field(default=None, max_length=500)
     scheduled_at: datetime
@@ -668,6 +674,8 @@ class MealCreateRequest(BaseModel):
             raise ValueError("a direct meal needs a restaurant")
         if self.visibility == "public" and self.join_deadline is None:
             raise ValueError("a public meal needs a join deadline")
+        if self.visibility == "public" and self.private_condition is not None:
+            raise ValueError("public meals cannot have a private condition")
         return self
 
 
@@ -709,6 +717,7 @@ class MealResponse(BaseModel):
 
     id: uuid.UUID
     visibility: MealVisibility
+    private_condition: PrivateMealCondition | None
     title: str
     description: str | None
     scheduled_at: datetime

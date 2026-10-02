@@ -169,6 +169,8 @@ Browser / Installed PWA
                          future area discovery
 ```
 
+外部店家資料流程：管理員儲存店家時，可用開關決定是否以店名與地址呼叫 Google Places Text Search，啟用時保存相符的 `google_place_id`；探索列表與餐廳詳情再以該 ID 呼叫 Place Details，只讀取評分與總評論數。測試資料可關閉此開關，避免任何 Google API 請求；Google 評論內容不抓取、不保存，API 失敗時回傳安全空狀態。
+
 Next.js 只負責 Web／PWA 與必要的前端伺服器渲染，不承擔核心商業規則。FastAPI 是唯一的業務 API，統一處理餐廳、評價、再訪、約飯、投票、聊天、社交關係、封鎖與檢舉規則。留言資料以餐廳／使用者唯一 thread 搭配多筆 entry 保存，確保再訪紀錄掛在原評論底下且統計只取最新有效 entry。
 
 ### 核心技術選型
@@ -189,6 +191,7 @@ Next.js 只負責 Web／PWA 與必要的前端伺服器渲染，不承擔核心�
 | 地圖篩選       | PostGIS bounds + city／district／cuisine／price query    | 篩選先暫存，按「套用篩選」後再按「搜尋此區域」查詢，避免每次點擊都發送請求       |
 | 地址搜尋定位   | FastAPI Geocoding Provider（目前使用 Nominatim adapter） | 將地址轉成座標；結果只用於定位，不會把外部店家寫入或混入 BiteMap 店家資料        |
 | 點圖反向定位   | FastAPI reverse geocoding endpoint                       | 管理員在地圖點擊或拖曳後，將座標轉回地址並同步到新增／編輯店家表單               |
+| 外部店家資料   | Google Places API (New)                                  | 管理員可切換自動查詢；啟用時綁定 `google_place_id`，探索與詳情只讀取 rating／userRatingCount，不抓取評論內容 |
 | API            | Python、FastAPI、Pydantic                                | 實作 REST API、權限與商業規則；亦方便後續加入評論分析與 AI 摘要                  |
 | ORM／Migration | SQLAlchemy 2、Alembic                                    | 明確管理資料存取、交易與資料庫版本變更                                           |
 | API 合約       | OpenAPI + 產生式 TypeScript Client                       | 由 FastAPI 規格產生前端型別與 Client，避免前後端欄位不一致                       |
@@ -233,7 +236,7 @@ bite/
 │       ├── src/api/
 │       │   ├── core/        # 設定、資料庫與安全性
 │       │   ├── domain/      # ORM models 與 API schemas
-│       │   ├── integrations/ # Google OAuth 與 Geocoding adapters
+│       │   ├── integrations/ # Google OAuth、Places 與 Geocoding adapters
 │       │   ├── routers/     # Admin、Auth、Explore、Map、Reviews 與 Meals API
 │       │   ├── services/    # 店家、探索、地圖、個人資料、留言、約飯、頭貼與排序邏輯
 │       │   ├── scripts/     # 維運／初始化腳本

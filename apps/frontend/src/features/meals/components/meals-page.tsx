@@ -29,6 +29,7 @@ import {
   type Meal,
   type MealRestaurant,
   MealsApiError,
+  privateMealConditionLabel,
   removeMealCandidate,
   reviewMealMember,
   startMealWithCurrentMembers,
@@ -168,6 +169,11 @@ function MealCard({ meal }: { meal: Meal }) {
       <div className="meal-card__topline">
         <span className={`meal-status is-${meal.status}`}>{statusLabel(meal)}</span>
         <span>{meal.visibility === "private" ? "私人約飯" : "公開加入"}</span>
+        {meal.visibility === "private" ? (
+          <span className="meal-condition-badge">
+            {privateMealConditionLabel(meal.private_condition)}
+          </span>
+        ) : null}
       </div>
       <div className="meal-card__body">
         <div>

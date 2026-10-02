@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     google_oauth_authorization_endpoint: str = "https://accounts.google.com/o/oauth2/v2/auth"
     google_oauth_token_endpoint: str = "https://oauth2.googleapis.com/token"
     google_oauth_userinfo_endpoint: str = "https://openidconnect.googleapis.com/v1/userinfo"
+    google_places_api_key: str | None = None
     public_map_result_limit: int = 250
     geocoding_provider: str = "nominatim"
     geocoding_user_agent: str = "BiteMap/0.1 (local development)"

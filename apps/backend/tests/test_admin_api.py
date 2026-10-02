@@ -15,6 +15,7 @@ from api.domain.models import AdminSession, AuditLog, AuditLogChange, Cuisine, R
 from api.domain.schemas import GeocodingCandidate
 from api.integrations.geocoding import get_geocoding_provider
 from api.main import app
+from api.services import admin as admin_service
 
 pytestmark = pytest.mark.skipif(
     os.getenv("RUN_DATABASE_TESTS") != "1",
@@ -23,11 +24,18 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.asyncio
-async def test_admin_restaurant_publish_flow_and_postgis_round_trip() -> None:
+async def test_admin_restaurant_publish_flow_and_postgis_round_trip(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Unauthorized callers are denied and publish enforces complete map data.
 
     未授權呼叫會被拒絕，發布時也會檢查完整地圖資料。
     """
+    async def unexpected_google_lookup(**_: object) -> None:
+        raise AssertionError("disabled Google lookup must not call the provider")
+
+    monkeypatch.setattr(admin_service, "find_google_place_id", unexpected_google_lookup)
+
     unique = uuid.uuid4().hex
     email = f"admin-{unique}@example.test"
     password = "admin-test-password"
@@ -87,11 +95,17 @@ async def test_admin_restaurant_publish_flow_and_postgis_round_trip() -> None:
 
             created = await client.post(
                 "/api/v1/admin/restaurants",
-                json={"name": "管理測試店", "address": "台北市測試路 1 號"},
+                json={
+                    "name": "管理測試店",
+                    "address": "台北市測試路 1 號",
+                    "google_lookup_enabled": False,
+                },
             )
             assert created.status_code == 201
             restaurant_id = uuid.UUID(created.json()["id"])
             assert created.json()["status"] == "draft"
+            assert created.json()["google_lookup_enabled"] is False
+            assert created.json()["google_place_id"] is None
 
             incomplete = await client.post(f"/api/v1/admin/restaurants/{restaurant_id}/publish")
             assert incomplete.status_code == 422
