@@ -585,6 +585,36 @@ async def ensure_direct_conversation(
     )
 
 
+async def delete_direct_conversation(
+    session: AsyncSession, conversation_id: uuid.UUID, user_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Permanently delete a direct room and return its active members / 永久刪除私聊並回傳成員。"""
+    conversation = await session.scalar(
+        select(Conversation)
+        .join(
+            ConversationMember,
+            and_(
+                ConversationMember.conversation_id == Conversation.id,
+                ConversationMember.user_id == user_id,
+                ConversationMember.left_at.is_(None),
+            ),
+        )
+        .options(selectinload(Conversation.members))
+        .where(Conversation.id == conversation_id)
+    )
+    if conversation is None:
+        raise LookupError("conversation not found")
+    if conversation.kind != "direct":
+        raise PermissionError("meal conversations cannot be deleted")
+
+    member_ids = [member.user_id for member in conversation.members if member.left_at is None]
+    if user_id not in member_ids:
+        raise PermissionError("conversation access denied")
+    await session.delete(conversation)
+    await session.commit()
+    return member_ids
+
+
 async def direct_conversation_member_ids(
     session: AsyncSession, conversation_id: uuid.UUID
 ) -> list[uuid.UUID]:

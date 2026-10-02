@@ -9,7 +9,16 @@ import uuid
 from collections import deque
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+    status,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.core.config import get_settings
@@ -30,6 +39,7 @@ from api.services.chat import (
     conversation_subscription_allowed,
     create_direct_message,
     create_meal_message,
+    delete_direct_conversation,
     direct_conversation_member_ids,
     ensure_direct_conversation,
     formal_meal_member_ids,
@@ -156,6 +166,26 @@ async def create_direct_room(
         return await ensure_direct_conversation(session, current.user.id, user_id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _chat_http_error(error) from error
+
+
+@router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    session: SessionDep,
+    current: UserDep,
+) -> Response:
+    try:
+        member_ids = await delete_direct_conversation(session, conversation_id, current.user.id)
+    except (ValueError, PermissionError, LookupError) as error:
+        raise _chat_http_error(error) from error
+    await realtime.publish(
+        {
+            "type": "conversation.deleted",
+            "conversation_id": str(conversation_id),
+            "audience_user_ids": [str(user_id) for user_id in member_ids],
+        }
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 async def _socket_error(
@@ -427,33 +457,13 @@ async def websocket_events(websocket: WebSocket) -> None:
                     if event_type in ("message.pin", "message.unpin"):
                         conversation_id = _conversation_id(payload)
                         message_id = uuid.UUID(str(payload["message_id"]))
+                        audience = await conversation_active_member_ids(session, conversation_id)
                         message = (
                             await pin_message(session, conversation_id, current_user_id, message_id)
                             if event_type == "message.pin"
                             else await unpin_message(
                                 session, conversation_id, current_user_id, message_id
                             )
-                        )
-                        audience = await conversation_active_member_ids(session, conversation_id)
-                        await realtime.publish(
-                            {
-                                "type": (
-                                    "message.pinned"
-                                    if event_type == "message.pin"
-                                    else "message.unpinned"
-                                ),
-                                "conversation_id": str(conversation_id),
-                                "meal_id": str(message.meal_id) if message.meal_id else None,
-                                "message": message.model_dump(mode="json"),
-                                "audience_user_ids": [str(user_id) for user_id in audience],
-                            }
-                        )
-                        await realtime.publish(
-                            {
-                                "type": "conversation.updated",
-                                "conversation_id": str(conversation_id),
-                                "audience_user_ids": [str(user_id) for user_id in audience],
-                            }
                         )
                         await realtime.hub.send(
                             connection,
@@ -463,6 +473,39 @@ async def websocket_events(websocket: WebSocket) -> None:
                                 "message_id": str(message.id),
                             },
                         )
+                        try:
+                            # The commit is authoritative; fan-out failure must not reject it.
+                            # 資料提交成功即代表操作完成，後續推送失敗不可改回失敗回覆。
+                            await realtime.publish(
+                                {
+                                    "type": (
+                                        "message.pinned"
+                                        if event_type == "message.pin"
+                                        else "message.unpinned"
+                                    ),
+                                    "conversation_id": str(conversation_id),
+                                    "meal_id": str(message.meal_id) if message.meal_id else None,
+                                    "message": message.model_dump(mode="json"),
+                                    "audience_user_ids": [str(user_id) for user_id in audience],
+                                }
+                            )
+                            await realtime.publish(
+                                {
+                                    "type": "conversation.updated",
+                                    "conversation_id": str(conversation_id),
+                                    "audience_user_ids": [str(user_id) for user_id in audience],
+                                }
+                            )
+                        except Exception:
+                            logger.exception(
+                                "Committed message pin fan-out failed",
+                                extra={
+                                    "user_id": str(current_user_id),
+                                    "event_type": event_type,
+                                    "conversation_id": str(conversation_id),
+                                    "message_id": str(message.id),
+                                },
+                            )
                         continue
                     if event_type == "message.send":
                         now = time.monotonic()

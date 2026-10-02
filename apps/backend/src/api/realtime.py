@@ -76,7 +76,7 @@ class RealtimeHub:
         if event_type == "social.updated":
             await self._dispatch_to_audience(client_event, event.get("audience_user_ids"))
             return
-        if event_type == "conversation.updated":
+        if event_type in {"conversation.updated", "conversation.deleted"}:
             raw_conversation_id = event.get("conversation_id")
             try:
                 conversation_id = uuid.UUID(str(raw_conversation_id))

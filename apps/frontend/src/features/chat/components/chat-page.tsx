@@ -1,21 +1,97 @@
 "use client";
 
-import { IconArrowLeft, IconMessageCircle, IconUserPlus, IconUsers } from "@tabler/icons-react";
+import {
+  IconArrowLeft,
+  IconMessageCircle,
+  IconTrash,
+  IconUserPlus,
+  IconUsers,
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  ChatApiError,
+  deleteConversation,
   fetchDirectConversations,
   fetchMealConversations,
   type ConversationSummary,
 } from "@/features/chat/api/chat-api";
 import { ConversationChatPanel } from "@/features/chat/components/conversation-chat-panel";
+import { resolveChatCategory, type ChatCategory } from "@/features/chat/utils/chat-navigation";
+import { unblockUser } from "@/features/profile/api/social-api";
 import { FriendsHubPanel } from "@/features/profile/components/friends-hub-panel";
 import { MyProfile, userApi } from "@/shared/auth/user-api";
 import { useRealtime } from "@/shared/realtime/realtime";
+import {
+  clearPendingFriendRemoved,
+  hasPendingFriendRemoved,
+} from "@/shared/realtime/social-notice-storage";
+import { AppConfirmDialog } from "@/shared/ui/app-confirm-dialog";
 
-type ChatCategory = "chat" | "meal" | "friends";
+type SocialNoticeAction = "friend_removed" | "user_blocked" | "blocked_by_user";
+type SocialNotice = { action: SocialNoticeAction; conversationId: string };
+
+function ChatRelationshipNotice({
+  action,
+  onContinue,
+  onUnblock,
+  onBack,
+  pending,
+}: {
+  action: SocialNoticeAction;
+  onContinue: () => void;
+  onUnblock: () => void;
+  onBack: () => void;
+  pending: boolean;
+}) {
+  const copy = {
+    friend_removed: {
+      title: "你們已不是好友",
+      message: "聊天紀錄仍會保留，要繼續聊天嗎？",
+      accent: "chat-relationship-notice--neutral",
+    },
+    user_blocked: {
+      title: "你已封鎖此使用者",
+      message: "目前無法繼續私聊；解除封鎖後才能恢復。",
+      accent: "chat-relationship-notice--danger",
+    },
+    blocked_by_user: {
+      title: "目前無法繼續聊天",
+      message: "你目前無法與此使用者私聊。",
+      accent: "chat-relationship-notice--danger",
+    },
+  }[action];
+
+  return (
+    <section className={`chat-relationship-notice ${copy.accent}`} role="status">
+      <p className="chat-relationship-notice__eyebrow">聊天狀態</p>
+      <h2>{copy.title}</h2>
+      <p>{copy.message}</p>
+      <div className="chat-relationship-notice__actions">
+        {action === "friend_removed" ? (
+          <button type="button" className="button button--primary" onClick={onContinue}>
+            繼續聊天
+          </button>
+        ) : null}
+        {action === "user_blocked" ? (
+          <button
+            type="button"
+            className="button button--primary"
+            onClick={onUnblock}
+            disabled={pending}
+          >
+            {pending ? "處理中…" : "解除封鎖"}
+          </button>
+        ) : null}
+        <button type="button" className="button button--ghost" onClick={onBack}>
+          返回列表
+        </button>
+      </div>
+    </section>
+  );
+}
 
 function formatLatestTime(value: string) {
   return new Intl.DateTimeFormat("zh-TW", {
@@ -31,14 +107,27 @@ export function ChatPage() {
   const searchParams = useSearchParams();
   const { subscribe } = useRealtime();
   const requestedCategory = searchParams.get("category");
-  const [category, setCategory] = useState<ChatCategory>(
-    requestedCategory === "friends" || requestedCategory === "meal" ? requestedCategory : "chat",
-  );
+  const category = resolveChatCategory(requestedCategory);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [profile, setProfile] = useState<MyProfile | null>(null);
   const [profileState, setProfileState] = useState<"loading" | "ready" | "error">("loading");
-  const [socialNotice, setSocialNotice] = useState("");
+  const [socialNotice, setSocialNotice] = useState<SocialNotice | null>(null);
+  const [dismissedFriendRemovalId, setDismissedFriendRemovalId] = useState<string | null>(null);
+  const [socialActionPending, setSocialActionPending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ConversationSummary | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState("");
+  const deleteFeedbackTimerRef = useRef<number | null>(null);
+
+  useEffect(
+    () => () => {
+      if (deleteFeedbackTimerRef.current !== null) {
+        window.clearTimeout(deleteFeedbackTimerRef.current);
+      }
+    },
+    [],
+  );
 
   const selectedConversationId = searchParams.get("conversation");
   const selectedConversation = conversations.find(
@@ -82,8 +171,30 @@ export function ChatPage() {
       category === "meal" ? "meal-list" : "conversation-list",
       undefined,
       (event) => {
-        if (event.type === "social.updated" && event.action === "friend_removed") {
-          setSocialNotice("你們已解除好友。聊天紀錄仍會保留，後續私聊依對方設定而定。");
+        const conversationId = event.type === "social.updated" ? event.conversation_id : null;
+        if (event.type === "social.updated") {
+          if (
+            conversationId &&
+            (event.action === "friend_removed" || event.action === "friend_created")
+          ) {
+            setDismissedFriendRemovalId((current) => (current === conversationId ? null : current));
+          }
+          if (conversationId && conversationId === selectedConversationId) {
+            if (event.action === "friend_created") {
+              setSocialNotice(null);
+            } else if (event.action) {
+              setSocialNotice({ action: event.action, conversationId });
+            }
+          }
+          void load();
+          return;
+        }
+        if (
+          event.type === "conversation.deleted" &&
+          event.conversation_id === selectedConversationId
+        ) {
+          setSocialNotice(null);
+          router.replace(`/chat?category=${category}`);
         }
         void load();
       },
@@ -94,13 +205,7 @@ export function ChatPage() {
       controller.abort();
       unsubscribeList();
     };
-  }, [category, load, subscribe]);
-
-  useEffect(() => {
-    if (!socialNotice) return;
-    const timer = window.setTimeout(() => setSocialNotice(""), 8_000);
-    return () => window.clearTimeout(timer);
-  }, [socialNotice]);
+  }, [category, load, router, selectedConversationId, subscribe]);
 
   useEffect(() => {
     if (category !== "friends") return;
@@ -123,23 +228,159 @@ export function ChatPage() {
   }, [category]);
 
   useEffect(() => {
-    if (requestedCategory === "direct") {
-      router.replace("/chat?category=chat");
-      return;
+    const nextCategory = resolveChatCategory(requestedCategory);
+    if (requestedCategory !== nextCategory) {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set("category", nextCategory);
+      router.replace(`/chat?${nextParams.toString()}`);
     }
-    if (
-      requestedCategory !== "chat" &&
-      requestedCategory !== "friends" &&
-      requestedCategory !== "meal"
-    ) {
-      router.replace("/chat?category=chat");
-    }
-  }, [requestedCategory, router]);
+  }, [requestedCategory, router, searchParams]);
 
   const selectCategory = (nextCategory: ChatCategory) => {
-    setCategory(nextCategory);
+    if (deleteFeedbackTimerRef.current !== null) {
+      window.clearTimeout(deleteFeedbackTimerRef.current);
+      deleteFeedbackTimerRef.current = null;
+    }
+    setDeleteFeedback("");
     router.replace(`/chat?category=${nextCategory}`);
   };
+
+  const requestedNotice = searchParams.get("notice");
+  const requestedNoticeUserId = searchParams.get("user");
+  const routeBlockedNotice =
+    category === "chat" && requestedNotice === "blocked" && selectedConversationId
+      ? { action: "user_blocked" as const, conversationId: selectedConversationId }
+      : null;
+  const storedFriendRemovedNotice =
+    category === "chat" &&
+    selectedConversationId &&
+    dismissedFriendRemovalId !== selectedConversationId &&
+    hasPendingFriendRemoved(selectedConversationId)
+      ? { action: "friend_removed" as const, conversationId: selectedConversationId }
+      : null;
+  const activeSocialNotice =
+    (socialNotice?.conversationId === selectedConversationId ? socialNotice : routeBlockedNotice) ??
+    storedFriendRemovedNotice;
+  const selectedTitle = selectedConversation?.other_user?.display_name ?? "聊天室";
+  const chatTargetUserId = selectedConversation?.other_user?.user_id ?? requestedNoticeUserId;
+  const hasSelectedChat =
+    category === "chat" && Boolean(selectedConversation || routeBlockedNotice);
+
+  function clearNoticeAndReturnToList() {
+    router.replace(`/chat?category=${category}`);
+  }
+
+  function continueAfterFriendRemoved() {
+    if (selectedConversationId) {
+      clearPendingFriendRemoved(selectedConversationId);
+      setDismissedFriendRemovalId(selectedConversationId);
+    }
+    setSocialNotice(null);
+  }
+
+  async function unblockChatPartner() {
+    if (!chatTargetUserId) return;
+    setSocialActionPending(true);
+    try {
+      await unblockUser(chatTargetUserId);
+      setSocialNotice(null);
+      router.replace(`/chat?category=chat&conversation=${selectedConversationId}`);
+      await load();
+    } catch {
+      // The existing chat panel/API error state remains the source of truth if this fails.
+    } finally {
+      setSocialActionPending(false);
+    }
+  }
+
+  function openDeleteDialog(conversation: ConversationSummary) {
+    if (deleteFeedbackTimerRef.current !== null) {
+      window.clearTimeout(deleteFeedbackTimerRef.current);
+      deleteFeedbackTimerRef.current = null;
+    }
+    setDeleteFeedback("");
+    setDeleteTarget(conversation);
+  }
+
+  function showDeleteSuccess() {
+    if (deleteFeedbackTimerRef.current !== null) {
+      window.clearTimeout(deleteFeedbackTimerRef.current);
+    }
+    setDeleteFeedback("聊天室已刪除，雙方聊天紀錄已永久清除。");
+    deleteFeedbackTimerRef.current = window.setTimeout(() => {
+      setDeleteFeedback("");
+      deleteFeedbackTimerRef.current = null;
+    }, 2000);
+  }
+
+  async function confirmDeleteConversation() {
+    if (!deleteTarget || deletePending) return;
+    const conversationId = deleteTarget.conversation_id;
+    setDeletePending(true);
+    setDeleteFeedback("");
+    try {
+      await deleteConversation(conversationId);
+      setDeleteTarget(null);
+      showDeleteSuccess();
+      if (selectedConversationId === conversationId) {
+        router.replace(`/chat?category=${category}`);
+      }
+      await load();
+    } catch (error) {
+      setDeleteFeedback(
+        error instanceof ChatApiError && typeof error.detail === "string"
+          ? error.detail
+          : "刪除聊天室失敗，請稍後再試。",
+      );
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
+  const renderConversationRows = (items: ConversationSummary[]) =>
+    items.map((conversation) => (
+      <div className="chat-list__row" key={conversation.conversation_id}>
+        <Link
+          className="chat-list__link"
+          href={
+            category === "meal"
+              ? `/meals/${conversation.meal_id}#chat`
+              : `/chat?category=chat&conversation=${conversation.conversation_id}`
+          }
+        >
+          <span className="chat-list__icon">
+            <IconMessageCircle aria-hidden="true" />
+          </span>
+          <span className="chat-list__content">
+            <strong>
+              {category === "meal"
+                ? conversation.meal_title
+                : (conversation.other_user?.display_name ?? "聊天室")}
+            </strong>
+            <small>
+              {conversation.latest_message
+                ? `${conversation.latest_message.sender.display_name}：${conversation.latest_message.content}`
+                : "聊天室已開放，來打聲招呼吧。"}
+            </small>
+          </span>
+          {conversation.latest_message ? (
+            <time dateTime={conversation.latest_message.created_at}>
+              {formatLatestTime(conversation.latest_message.created_at)}
+            </time>
+          ) : null}
+        </Link>
+        {conversation.kind === "direct" ? (
+          <button
+            type="button"
+            className="chat-list__delete"
+            aria-label={`刪除與${conversation.other_user?.display_name ?? "對方"}的聊天室`}
+            onClick={() => openDeleteDialog(conversation)}
+          >
+            <IconTrash aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+    ));
 
   return (
     <main className="chat-page">
@@ -170,10 +411,9 @@ export function ChatPage() {
           好友管理
         </button>
       </nav>
-
-      {socialNotice ? (
-        <p className="chat-page__social-notice" role="status">
-          {socialNotice}
+      {deleteFeedback ? (
+        <p className="chat-page__feedback" role="status">
+          {deleteFeedback}
         </p>
       ) : null}
 
@@ -199,21 +439,54 @@ export function ChatPage() {
         <FriendsHubPanel profile={profile} />
       ) : null}
 
-      {selectedConversation && category === "chat" ? (
+      {hasSelectedChat ? (
         <section className="chat-page__selected">
-          <button
-            type="button"
-            className="back-link"
-            onClick={() => router.replace(`/chat?category=${category}`)}
-          >
-            <IconArrowLeft aria-hidden="true" /> 返回聊天列表
-          </button>
-          <ConversationChatPanel
-            conversationId={selectedConversation.conversation_id}
-            title={selectedConversation.other_user?.display_name ?? "聊天室"}
-            ariaLabel="聊天室"
-            placeholder="輸入訊息…"
-          />
+          <div className="chat-page__selected-toolbar">
+            <button
+              type="button"
+              className="back-link"
+              onClick={() => router.replace(`/chat?category=${category}`)}
+            >
+              <IconArrowLeft aria-hidden="true" /> 返回聊天列表
+            </button>
+            {selectedConversation?.kind === "direct" ? (
+              <button
+                type="button"
+                className="button button--ghost chat-page__delete-button"
+                onClick={() => openDeleteDialog(selectedConversation)}
+              >
+                <IconTrash aria-hidden="true" /> 刪除聊天室
+              </button>
+            ) : null}
+          </div>
+          {activeSocialNotice?.action === "user_blocked" ||
+          activeSocialNotice?.action === "blocked_by_user" ? (
+            <ChatRelationshipNotice
+              action={activeSocialNotice.action}
+              onContinue={() => setSocialNotice(null)}
+              onUnblock={() => void unblockChatPartner()}
+              onBack={clearNoticeAndReturnToList}
+              pending={socialActionPending}
+            />
+          ) : (
+            <>
+              {activeSocialNotice?.action === "friend_removed" ? (
+                <ChatRelationshipNotice
+                  action={activeSocialNotice.action}
+                  onContinue={continueAfterFriendRemoved}
+                  onUnblock={() => undefined}
+                  onBack={clearNoticeAndReturnToList}
+                  pending={false}
+                />
+              ) : null}
+              <ConversationChatPanel
+                conversationId={selectedConversation?.conversation_id}
+                title={selectedTitle}
+                ariaLabel="聊天室"
+                placeholder="輸入訊息…"
+              />
+            </>
+          )}
         </section>
       ) : null}
 
@@ -247,42 +520,48 @@ export function ChatPage() {
             </section>
           ) : null}
           {state === "ready" && conversations.length > 0 ? (
-            <section className="chat-list" aria-label="聊天室列表">
-              {conversations.map((conversation) => (
-                <Link
-                  href={
-                    category === "meal"
-                      ? `/meals/${conversation.meal_id}#chat`
-                      : `/chat?category=chat&conversation=${conversation.conversation_id}`
-                  }
-                  key={conversation.conversation_id}
-                >
-                  <span className="chat-list__icon">
-                    <IconMessageCircle aria-hidden="true" />
-                  </span>
-                  <span className="chat-list__content">
-                    <strong>
-                      {category === "meal"
-                        ? conversation.meal_title
-                        : (conversation.other_user?.display_name ?? "聊天室")}
-                    </strong>
-                    <small>
-                      {conversation.latest_message
-                        ? `${conversation.latest_message.sender.display_name}：${conversation.latest_message.content}`
-                        : "聊天室已開放，來打聲招呼吧。"}
-                    </small>
-                  </span>
-                  {conversation.latest_message ? (
-                    <time dateTime={conversation.latest_message.created_at}>
-                      {formatLatestTime(conversation.latest_message.created_at)}
-                    </time>
-                  ) : null}
-                </Link>
-              ))}
-            </section>
+            category === "meal" ? (
+              <section className="chat-list" aria-label="約飯聊天室列表">
+                {renderConversationRows(conversations)}
+              </section>
+            ) : (
+              <div className="chat-list-groups">
+                {conversations.some((conversation) => conversation.category === "friends") ? (
+                  <section className="chat-list-group" aria-labelledby="friend-chats-title">
+                    <h2 id="friend-chats-title">好友聊天</h2>
+                    <section className="chat-list" aria-label="好友聊天列表">
+                      {renderConversationRows(
+                        conversations.filter((conversation) => conversation.category === "friends"),
+                      )}
+                    </section>
+                  </section>
+                ) : null}
+                {conversations.some((conversation) => conversation.category === "direct") ? (
+                  <section className="chat-list-group" aria-labelledby="direct-chats-title">
+                    <h2 id="direct-chats-title">私聊</h2>
+                    <section className="chat-list" aria-label="私聊列表">
+                      {renderConversationRows(
+                        conversations.filter((conversation) => conversation.category === "direct"),
+                      )}
+                    </section>
+                  </section>
+                ) : null}
+              </div>
+            )
           ) : null}
         </>
       ) : null}
+      <AppConfirmDialog
+        open={deleteTarget !== null}
+        title="永久刪除聊天室？"
+        message={`刪除後，你和${deleteTarget?.other_user?.display_name ?? "對方"}的所有聊天紀錄、回覆、釘選與已讀資料都會永久刪除，且無法恢復。`}
+        confirmLabel={deletePending ? "刪除中…" : "永久刪除"}
+        danger
+        onCancel={() => {
+          if (!deletePending) setDeleteTarget(null);
+        }}
+        onConfirm={() => void confirmDeleteConversation()}
+      />
     </main>
   );
 }

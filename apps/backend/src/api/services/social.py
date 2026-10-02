@@ -11,6 +11,8 @@ from sqlalchemy.orm import selectinload
 
 from api.domain.models import (
     Block,
+    Conversation,
+    ConversationMember,
     DirectConversationPair,
     FriendRequest,
     Friendship,
@@ -136,24 +138,52 @@ async def existing_direct_conversation_id(
     )
 
 
+async def ensure_direct_conversation_for_friendship(
+    session: AsyncSession, first: uuid.UUID, second: uuid.UUID
+) -> uuid.UUID:
+    """Reuse or create the canonical direct room when friendship is accepted."""
+    existing = await existing_direct_conversation_id(session, first, second)
+    if existing is not None:
+        return existing
+
+    conversation = Conversation(kind="direct")
+    session.add(conversation)
+    await session.flush()
+    low, high = canonical_pair(first, second)
+    session.add(
+        DirectConversationPair(
+            conversation_id=conversation.id,
+            user_low_id=low,
+            user_high_id=high,
+        )
+    )
+    session.add_all(
+        [
+            ConversationMember(conversation_id=conversation.id, user_id=first),
+            ConversationMember(conversation_id=conversation.id, user_id=second),
+        ]
+    )
+    return conversation.id
+
+
 async def relationship_state(
     session: AsyncSession, current_user_id: uuid.UUID, target_user_id: uuid.UUID
 ) -> RelationshipStateResponse:
     if current_user_id == target_user_id:
         return RelationshipStateResponse(status="self")
 
+    conversation_id = await existing_direct_conversation_id(
+        session, current_user_id, target_user_id
+    )
     current_blocks, target_blocks = await block_direction(session, current_user_id, target_user_id)
     if current_blocks:
-        return RelationshipStateResponse(status="blocked_by_me")
+        return RelationshipStateResponse(status="blocked_by_me", conversation_id=conversation_id)
     if target_blocks:
-        return RelationshipStateResponse(status="blocked_me")
+        return RelationshipStateResponse(status="blocked_me", conversation_id=conversation_id)
 
     following, followed_by = await follow_flags(session, current_user_id, target_user_id)
     current_follow_status = follow_status(following, followed_by)
 
-    conversation_id = await existing_direct_conversation_id(
-        session, current_user_id, target_user_id
-    )
     if await has_friendship(session, current_user_id, target_user_id):
         return RelationshipStateResponse(
             status="friends",
@@ -255,6 +285,9 @@ async def respond_friend_request(
             raise PermissionError("friend request is not allowed")
         low, high = canonical_pair(request.requester_id, request.recipient_id)
         session.add(Friendship(user_low_id=low, user_high_id=high))
+        await ensure_direct_conversation_for_friendship(
+            session, request.requester_id, request.recipient_id
+        )
         await session.execute(
             update(FriendRequest)
             .where(

@@ -11,6 +11,8 @@ import {
   useState,
 } from "react";
 
+import { clearPendingFriendRemoved, rememberFriendRemoved } from "./social-notice-storage";
+
 export type RealtimeStatus = "connecting" | "connected" | "disconnected";
 export type RealtimeChannel = "meal-list" | "conversation-list" | "state" | "chat";
 
@@ -77,9 +79,13 @@ export type ConversationUpdatedEvent = {
   type: "conversation.updated";
   conversation_id: string;
 };
+export type ConversationDeletedEvent = {
+  type: "conversation.deleted";
+  conversation_id: string;
+};
 export type SocialUpdatedEvent = {
   type: "social.updated";
-  action?: "friend_removed";
+  action?: "friend_created" | "friend_removed" | "user_blocked" | "blocked_by_user";
   conversation_id?: string | null;
 };
 export type RealtimeEvent =
@@ -91,6 +97,7 @@ export type RealtimeEvent =
   | ConversationReadEvent
   | TypingUpdatedEvent
   | ConversationUpdatedEvent
+  | ConversationDeletedEvent
   | SocialUpdatedEvent;
 
 type Subscription = {
@@ -247,17 +254,28 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
           event.type !== "conversation.read" &&
           event.type !== "typing.updated" &&
           event.type !== "conversation.updated" &&
+          event.type !== "conversation.deleted" &&
           event.type !== "social.updated"
         ) {
           return;
         }
         const typedEvent = event as RealtimeEvent;
+        if (typedEvent.type === "social.updated" && typedEvent.conversation_id) {
+          if (typedEvent.action === "friend_removed") {
+            rememberFriendRemoved(typedEvent.conversation_id);
+          } else if (typedEvent.action === "friend_created") {
+            clearPendingFriendRemoved(typedEvent.conversation_id);
+          }
+        }
         let keys: string[];
         if (typedEvent.type === "meal.list.updated") {
           keys = [subscriptionKey("meal-list")];
         } else if (typedEvent.type === "social.updated") {
           keys = [subscriptionKey("conversation-list")];
-        } else if (typedEvent.type === "conversation.updated") {
+        } else if (
+          typedEvent.type === "conversation.updated" ||
+          typedEvent.type === "conversation.deleted"
+        ) {
           keys = [
             subscriptionKey("conversation-list"),
             subscriptionKey("chat", undefined, typedEvent.conversation_id),

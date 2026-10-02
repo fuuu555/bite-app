@@ -25,6 +25,7 @@ from api.realtime import realtime
 from api.services.social import (
     block_user,
     cancel_friend_request,
+    existing_direct_conversation_id,
     follow_user,
     list_followers,
     list_following,
@@ -69,7 +70,8 @@ def _social_error(error: Exception) -> HTTPException:
 
 async def _publish_social(
     *user_ids: uuid.UUID,
-    action: Literal["friend_removed"] | None = None,
+    action: Literal["friend_created", "friend_removed", "user_blocked", "blocked_by_user"]
+    | None = None,
     conversation_id: uuid.UUID | None = None,
 ) -> None:
     """Publish social invalidation with an optional, non-authoritative UI hint.
@@ -154,7 +156,12 @@ async def accept_friend_request(
     except (ValueError, PermissionError, LookupError) as error:
         raise _social_error(error) from error
     if response.request is not None:
-        await _publish_social(current.user.id, response.request.requester_id)
+        await _publish_social(
+            current.user.id,
+            response.request.requester_id,
+            action="friend_created",
+            conversation_id=response.relationship.conversation_id,
+        )
     return response
 
 
@@ -247,11 +254,21 @@ async def create_block(
     session: SessionDep,
     current: UserDep,
 ) -> RelationshipStateResponse:
+    conversation_id = await existing_direct_conversation_id(session, current.user.id, user_id)
     try:
         response = await block_user(session, current.user.id, user_id)
     except (ValueError, PermissionError, LookupError) as error:
         raise _social_error(error) from error
-    await _publish_social(current.user.id, user_id)
+    await _publish_social(
+        current.user.id,
+        action="user_blocked",
+        conversation_id=conversation_id,
+    )
+    await _publish_social(
+        user_id,
+        action="blocked_by_user",
+        conversation_id=conversation_id,
+    )
     return response
 
 

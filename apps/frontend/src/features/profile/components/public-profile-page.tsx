@@ -10,7 +10,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createDirectConversation } from "@/features/chat/api/chat-api";
 import {
@@ -32,9 +32,34 @@ export function PublicProfilePage({ userId }: { userId: string }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [actionNotice, setActionNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+  const actionNoticeTimerRef = useRef<number | null>(null);
+
+  function clearActionNoticeTimer() {
+    if (actionNoticeTimerRef.current !== null) {
+      window.clearTimeout(actionNoticeTimerRef.current);
+      actionNoticeTimerRef.current = null;
+    }
+  }
+
+  function showActionNotice(message: string) {
+    clearActionNoticeTimer();
+    setActionNotice(message);
+    actionNoticeTimerRef.current = window.setTimeout(() => {
+      setActionNotice((current) => (current === message ? "" : current));
+      actionNoticeTimerRef.current = null;
+    }, 2_000);
+  }
+
+  useEffect(
+    () => () => {
+      clearActionNoticeTimer();
+    },
+    [],
+  );
 
   useEffect(() => {
     userApi<Profile>(`/profiles/${userId}`)
@@ -50,7 +75,8 @@ export function PublicProfilePage({ userId }: { userId: string }) {
 
   async function applyAction(
     action: () => Promise<{ relationship: NonNullable<Profile["relationship"]> }>,
-  ) {
+    successMessage?: string,
+  ): Promise<boolean> {
     setBusy(true);
     setActionError("");
     try {
@@ -58,12 +84,15 @@ export function PublicProfilePage({ userId }: { userId: string }) {
       setProfile((current) =>
         current ? { ...current, relationship: response.relationship } : current,
       );
+      if (successMessage) showActionNotice(successMessage);
+      return true;
     } catch (caught) {
       setActionError(
         caught instanceof UserApiError
           ? String(caught.detail || "操作失敗")
           : "操作失敗，請稍後再試。",
       );
+      return false;
     } finally {
       setBusy(false);
     }
@@ -154,34 +183,11 @@ export function PublicProfilePage({ userId }: { userId: string }) {
                 type="button"
                 className="button button--secondary"
                 disabled={busy}
-                onClick={() => void applyAction(() => sendFriendRequest(userId))}
+                onClick={() =>
+                  void applyAction(() => sendFriendRequest(userId), "好友邀請已送出。")
+                }
               >
                 <IconUserPlus aria-hidden="true" /> 加好友
-              </button>
-            ) : null}
-            {profile.relationship.follow_status === "following" ||
-            profile.relationship.follow_status === "mutual" ? (
-              <button
-                type="button"
-                className="button button--secondary"
-                disabled={busy}
-                onClick={() =>
-                  void applyAction(async () => ({ relationship: await unfollowUser(userId) }))
-                }
-              >
-                取消追蹤
-              </button>
-            ) : profile.relationship.status !== "blocked_by_me" &&
-              profile.relationship.status !== "blocked_me" ? (
-              <button
-                type="button"
-                className="button button--secondary"
-                disabled={busy}
-                onClick={() =>
-                  void applyAction(async () => ({ relationship: await followUser(userId) }))
-                }
-              >
-                追蹤
               </button>
             ) : null}
             {profile.relationship.can_accept_friend_request && profile.relationship.request_id ? (
@@ -191,7 +197,10 @@ export function PublicProfilePage({ userId }: { userId: string }) {
                   className="button button--primary"
                   disabled={busy}
                   onClick={() =>
-                    void applyAction(() => acceptFriendRequest(profile.relationship!.request_id!))
+                    void applyAction(
+                      () => acceptFriendRequest(profile.relationship!.request_id!),
+                      "已接受好友邀請。",
+                    )
                   }
                 >
                   接受好友邀請
@@ -260,6 +269,34 @@ export function PublicProfilePage({ userId }: { userId: string }) {
                 </button>
                 {moreOpen ? (
                   <div className="public-profile-actions__menu" role="menu">
+                    {profile.relationship.follow_status === "following" ||
+                    profile.relationship.follow_status === "mutual" ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMoreOpen(false);
+                          void applyAction(async () => ({
+                            relationship: await unfollowUser(userId),
+                          }));
+                        }}
+                      >
+                        取消追蹤
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setMoreOpen(false);
+                          void applyAction(async () => ({
+                            relationship: await followUser(userId),
+                          }));
+                        }}
+                      >
+                        追蹤
+                      </button>
+                    )}
                     <button
                       type="button"
                       role="menuitem"
@@ -276,6 +313,11 @@ export function PublicProfilePage({ userId }: { userId: string }) {
             ) : null}
           </div>
         ) : null}
+        {actionNotice ? (
+          <p className="form-message is-success" role="status">
+            {actionNotice}
+          </p>
+        ) : null}
         {actionError ? (
           <p className="form-message is-error" role="alert">
             {actionError}
@@ -290,8 +332,17 @@ export function PublicProfilePage({ userId }: { userId: string }) {
         danger
         onCancel={() => setBlockConfirmOpen(false)}
         onConfirm={() => {
+          const conversationId = profile.relationship?.conversation_id;
           setBlockConfirmOpen(false);
-          void applyAction(async () => ({ relationship: await blockUser(userId) }));
+          void applyAction(async () => ({ relationship: await blockUser(userId) })).then(
+            (success) => {
+              if (success && conversationId) {
+                router.push(
+                  `/chat?category=chat&conversation=${conversationId}&notice=blocked&user=${userId}`,
+                );
+              }
+            },
+          );
         }}
       />
     </main>

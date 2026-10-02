@@ -11,7 +11,7 @@ import {
   IconX,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AppConfirmDialog } from "@/shared/ui/app-confirm-dialog";
 import { createDirectConversation } from "@/features/chat/api/chat-api";
@@ -71,6 +71,31 @@ export function FriendsHubPanel({ profile }: { profile: MyProfile }) {
   const [copied, setCopied] = useState(false);
   const [showAllFriends, setShowAllFriends] = useState(false);
   const [friendToRemove, setFriendToRemove] = useState<FriendSummary | null>(null);
+  const noticeTimerRef = useRef<number | null>(null);
+
+  function clearNoticeTimer() {
+    if (noticeTimerRef.current !== null) {
+      window.clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = null;
+    }
+  }
+
+  function showNotice(message: string, transient = false) {
+    clearNoticeTimer();
+    setNotice(message);
+    if (!transient) return;
+    noticeTimerRef.current = window.setTimeout(() => {
+      setNotice((current) => (current === message ? "" : current));
+      noticeTimerRef.current = null;
+    }, 2_000);
+  }
+
+  useEffect(
+    () => () => {
+      clearNoticeTimer();
+    },
+    [],
+  );
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -163,7 +188,7 @@ export function FriendsHubPanel({ profile }: { profile: MyProfile }) {
     if (!lookup) return;
     try {
       await sendFriendRequest(lookup.id);
-      setNotice("好友邀請已送出。");
+      showNotice("好友邀請已送出。", true);
       setLookup(null);
       setLookupState("idle");
       setCode("");
@@ -177,7 +202,7 @@ export function FriendsHubPanel({ profile }: { profile: MyProfile }) {
     try {
       if (accepted) await acceptFriendRequest(requestId);
       else await rejectFriendRequest(requestId);
-      setNotice(accepted ? "已接受好友邀請。" : "已拒絕好友邀請。");
+      showNotice(accepted ? "已接受好友邀請。" : "已拒絕好友邀請。", accepted);
       await load();
     } catch {
       setError("好友邀請狀態更新失敗，請稍後再試。");
@@ -187,7 +212,7 @@ export function FriendsHubPanel({ profile }: { profile: MyProfile }) {
   async function cancel(requestId: string) {
     try {
       await cancelFriendRequest(requestId);
-      setNotice("已取消好友邀請。");
+      showNotice("已取消好友邀請。");
       await load();
     } catch {
       setError("取消好友邀請失敗，請稍後再試。");
@@ -198,7 +223,7 @@ export function FriendsHubPanel({ profile }: { profile: MyProfile }) {
     try {
       await removeFriend(friend.id);
       setFriendToRemove(null);
-      setNotice("已解除好友。");
+      showNotice("已解除好友。");
       await load();
     } catch {
       setError("解除好友失敗，請稍後再試。");
@@ -207,9 +232,7 @@ export function FriendsHubPanel({ profile }: { profile: MyProfile }) {
 
   async function openChat(friend: FriendSummary) {
     try {
-      const conversation = friend.conversation_id
-        ? { conversation_id: friend.conversation_id }
-        : await createDirectConversation(friend.id);
+      const conversation = await createDirectConversation(friend.id);
       router.push(`/chat?category=chat&conversation=${conversation.conversation_id}`);
     } catch {
       setError("聊天室目前無法開啟，請稍後再試。");
@@ -235,7 +258,7 @@ export function FriendsHubPanel({ profile }: { profile: MyProfile }) {
         body: JSON.stringify({ accept_stranger_messages: checked }),
       });
       setAcceptStrangerMessages(updated.accept_stranger_messages);
-      setNotice(checked ? "已開放陌生人私聊。" : "已關閉陌生人私聊。");
+      showNotice(checked ? "已開放陌生人私聊。" : "已關閉陌生人私聊。");
     } catch {
       setError("隱私設定更新失敗，請稍後再試。");
     } finally {

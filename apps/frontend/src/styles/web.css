@@ -587,6 +587,10 @@ select:hover {
   color: var(--color-danger);
 }
 
+.form-message.is-success {
+  color: var(--color-success, #16805d);
+}
+
 .editor-content-manager {
   display: grid;
   gap: 20px;
@@ -8016,15 +8020,55 @@ button.meal-create-dialog__backdrop span {
   font-weight: 600;
 }
 
-.chat-page__social-notice {
-  margin: -8px 0 20px;
-  border: 1px solid color-mix(in srgb, var(--color-action) 35%, var(--color-hairline));
-  border-radius: 10px;
-  padding: 11px 13px;
-  background: color-mix(in srgb, var(--color-action) 8%, var(--color-surface));
-  color: var(--color-ink);
-  font-size: 0.9rem;
-  font-weight: 650;
+.chat-relationship-notice {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  background: var(--color-surface);
+}
+
+.chat-relationship-notice--neutral {
+  border-color: color-mix(in srgb, var(--color-action) 35%, var(--color-hairline));
+  background: color-mix(in srgb, var(--color-action) 6%, var(--color-surface));
+}
+
+.chat-relationship-notice--danger {
+  border-color: color-mix(in srgb, var(--color-danger) 38%, var(--color-hairline));
+  background: color-mix(in srgb, var(--color-danger) 5%, var(--color-surface));
+}
+
+.chat-relationship-notice h2,
+.chat-relationship-notice p {
+  margin: 0;
+}
+
+.chat-relationship-notice h2 {
+  font-size: 1.05rem;
+}
+
+.chat-relationship-notice > p:not(.chat-relationship-notice__eyebrow) {
+  color: var(--color-ink-muted);
+}
+
+.chat-relationship-notice__eyebrow {
+  color: var(--color-action);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.chat-relationship-notice--danger .chat-relationship-notice__eyebrow {
+  color: var(--color-danger);
+}
+
+.chat-relationship-notice__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 5px;
 }
 
 .chat-page__state,
@@ -8063,23 +8107,74 @@ button.meal-create-dialog__backdrop span {
   background: var(--color-surface);
 }
 
-.chat-list > a {
+.chat-list-groups {
+  display: grid;
+  gap: 24px;
+}
+
+.chat-list-group {
+  display: grid;
+  gap: 10px;
+}
+
+.chat-list-group h2 {
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chat-list__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.chat-list__row + .chat-list__row {
+  border-top: 1px solid var(--color-hairline);
+}
+
+.chat-list__link {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
-  padding: 17px 19px;
+  min-width: 0;
+  padding: 17px 12px 17px 19px;
   color: inherit;
   text-decoration: none;
   transition: background var(--transition-ui);
 }
 
-.chat-list > a + a {
-  border-top: 1px solid var(--color-hairline);
+.chat-list__link:hover {
+  background: var(--color-canvas);
 }
 
-.chat-list > a:hover {
-  background: var(--color-canvas);
+.chat-list__delete {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-right: 8px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  transition:
+    background var(--transition-ui),
+    color var(--transition-ui);
+}
+
+.chat-list__delete:hover,
+.chat-list__delete:focus-visible {
+  background: var(--color-surface-muted);
+  color: var(--color-danger);
+}
+
+.chat-list__delete svg {
+  width: 18px;
 }
 
 .chat-list__icon {
@@ -8112,6 +8207,27 @@ button.meal-create-dialog__backdrop span {
 .chat-list time {
   color: var(--color-ink-muted);
   font-size: 0.7rem;
+}
+
+.chat-page__selected-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chat-page__delete-button {
+  color: var(--color-danger);
+}
+
+.chat-page__delete-button svg {
+  width: 17px;
+}
+
+.chat-page__feedback {
+  margin: 14px 0;
+  color: var(--color-action);
+  font-size: 0.9rem;
 }
 
 .sr-only {
