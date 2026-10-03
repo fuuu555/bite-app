@@ -10,6 +10,7 @@ import {
   IconSparkles,
   IconToolsKitchen3,
 } from "@tabler/icons-react";
+import Link from "next/link";
 import { type FormEvent, useEffect, useState } from "react";
 
 import {
@@ -23,6 +24,15 @@ import {
   type ItineraryTransport,
 } from "@/features/itinerary/api/itinerary-api";
 import { ItineraryMap } from "@/features/itinerary/components/itinerary-map";
+import {
+  addItineraryPlace,
+  isPlaceInItinerary,
+  readSavedItinerary,
+  removeItineraryPlace,
+  toPlannedItineraryPlace,
+  writeSavedItinerary,
+  type SavedItinerary,
+} from "@/features/itinerary/lib/itinerary-storage";
 
 type LocationState = { latitude: number; longitude: number } | null;
 
@@ -70,7 +80,9 @@ const datasetLabels: Record<ItineraryPlace["source_dataset"], string> = {
 };
 
 function distanceLabel(meters: number) {
-  return meters < 1000 ? `${Math.max(1, Math.round(meters))} 公尺` : `${(meters / 1000).toFixed(1)} 公里`;
+  return meters < 1000
+    ? `${Math.max(1, Math.round(meters))} 公尺`
+    : `${(meters / 1000).toFixed(1)} 公里`;
 }
 
 function stopKey(place: ItineraryPlace) {
@@ -84,10 +96,12 @@ function PlaceSource({ place }: { place: ItineraryPlace }) {
 function PlaceCard({
   place,
   actionLabel = "加入行程",
+  isAdded = false,
   onAction,
 }: {
   place: ItineraryPlace;
   actionLabel?: string;
+  isAdded?: boolean;
   onAction?: () => void;
 }) {
   return (
@@ -112,16 +126,29 @@ function PlaceCard({
         </div>
       </div>
       {onAction ? (
-        <button className="button button--quiet itinerary-place__action" type="button" onClick={onAction}>
-          <IconPlus aria-hidden="true" />
-          {actionLabel}
+        <button
+          className="button button--quiet itinerary-place__action"
+          type="button"
+          onClick={onAction}
+          disabled={isAdded}
+        >
+          {isAdded ? <IconMapPin aria-hidden="true" /> : <IconPlus aria-hidden="true" />}
+          {isAdded ? "已加入行程" : actionLabel}
         </button>
       ) : null}
     </article>
   );
 }
 
-function StopCard({ stop, onAdd }: { stop: ItineraryStop; onAdd: () => void }) {
+function StopCard({
+  stop,
+  isAdded,
+  onAdd,
+}: {
+  stop: ItineraryStop;
+  isAdded: boolean;
+  onAdd: () => void;
+}) {
   return (
     <article className="itinerary-stop">
       <div className="itinerary-stop__number" aria-hidden="true">
@@ -135,9 +162,9 @@ function StopCard({ stop, onAdd }: { stop: ItineraryStop; onAdd: () => void }) {
         <h3>{stop.place.name}</h3>
         <p>{stop.reason}</p>
         <PlaceSource place={stop.place} />
-        <button className="button button--quiet" type="button" onClick={onAdd}>
-          <IconPlus aria-hidden="true" />
-          加入我的行程
+        <button className="button button--quiet" type="button" onClick={onAdd} disabled={isAdded}>
+          {isAdded ? <IconMapPin aria-hidden="true" /> : <IconPlus aria-hidden="true" />}
+          {isAdded ? "已加入行程" : "加入我的行程"}
         </button>
       </div>
     </article>
@@ -157,20 +184,27 @@ export function ItineraryPage() {
   const [includeLodging, setIncludeLodging] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [plan, setPlan] = useState<ItineraryPlan | null>(null);
-  const [savedStops, setSavedStops] = useState<ItineraryPlace[]>([]);
+  const [savedItinerary, setSavedItinerary] = useState<SavedItinerary>({
+    version: 1,
+    updatedAt: new Date(0).toISOString(),
+    places: [],
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setLocation({ latitude: coords.latitude, longitude: coords.longitude });
-        setLocationMessage("已使用目前位置推薦附近旅遊地點。");
-      },
-      () => setLocationMessage("定位未開啟，已保留縣市選擇。"),
-      { enableHighAccuracy: false, maximumAge: 300_000, timeout: 8_000 },
-    );
+    const frame = window.requestAnimationFrame(() => setSavedItinerary(readSavedItinerary()));
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          setLocation({ latitude: coords.latitude, longitude: coords.longitude });
+          setLocationMessage("已使用目前位置推薦附近旅遊地點。");
+        },
+        () => setLocationMessage("定位未開啟，已保留縣市選擇。"),
+        { enableHighAccuracy: false, maximumAge: 300_000, timeout: 8_000 },
+      );
+    }
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   function locate() {
@@ -194,7 +228,9 @@ export function ItineraryPage() {
 
   function toggleInterest(value: string) {
     setInterests((current) =>
-      current.includes(value) ? current.filter((item) => item !== value) : [...current, value].slice(0, 5),
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value].slice(0, 5),
     );
   }
 
@@ -228,9 +264,13 @@ export function ItineraryPage() {
   }
 
   function addStop(place: ItineraryPlace) {
-    setSavedStops((current) =>
-      current.some((item) => stopKey(item) === stopKey(place)) ? current : [...current, place],
-    );
+    const savedPlace = toPlannedItineraryPlace(place);
+    if (isPlaceInItinerary(savedItinerary, savedPlace)) return;
+    const next = addItineraryPlace(savedItinerary, savedPlace);
+    setSavedItinerary(next);
+    if (!writeSavedItinerary(next)) {
+      setError("地點已加入目前行程，但本次變更未保存。請稍後重試。");
+    }
   }
 
   const mapStops = plan?.stops ?? [];
@@ -307,7 +347,10 @@ export function ItineraryPage() {
             <div className="itinerary-form__grid">
               <label className="itinerary-field">
                 <span>行程時間</span>
-                <select value={duration} onChange={(event) => setDuration(event.target.value as ItineraryDuration)}>
+                <select
+                  value={duration}
+                  onChange={(event) => setDuration(event.target.value as ItineraryDuration)}
+                >
                   <option value="half_day">半日</option>
                   <option value="full_day">一日</option>
                 </select>
@@ -325,7 +368,10 @@ export function ItineraryPage() {
               </label>
               <label className="itinerary-field">
                 <span>交通方式</span>
-                <select value={transport} onChange={(event) => setTransport(event.target.value as ItineraryTransport)}>
+                <select
+                  value={transport}
+                  onChange={(event) => setTransport(event.target.value as ItineraryTransport)}
+                >
                   <option value="public_transport">大眾運輸</option>
                   <option value="walking">步行優先</option>
                   <option value="driving">自駕</option>
@@ -394,7 +440,11 @@ export function ItineraryPage() {
                   <h2>{plan.title}</h2>
                   <p>{plan.summary}</p>
                 </div>
-                <button className="button button--quiet" type="button" onClick={() => void submit()}>
+                <button
+                  className="button button--quiet"
+                  type="button"
+                  onClick={() => void submit()}
+                >
                   <IconRefresh aria-hidden="true" />
                   重新推薦
                 </button>
@@ -402,7 +452,15 @@ export function ItineraryPage() {
               <div className="itinerary-stops">
                 {plan.stops.length ? (
                   plan.stops.map((stop) => (
-                    <StopCard key={`${stop.order}-${stopKey(stop.place)}`} stop={stop} onAdd={() => addStop(stop.place)} />
+                    <StopCard
+                      key={`${stop.order}-${stopKey(stop.place)}`}
+                      stop={stop}
+                      isAdded={isPlaceInItinerary(
+                        savedItinerary,
+                        toPlannedItineraryPlace(stop.place),
+                      )}
+                      onAdd={() => addStop(stop.place)}
+                    />
                   ))
                 ) : (
                   <div className="itinerary-results__empty is-inline">
@@ -412,13 +470,21 @@ export function ItineraryPage() {
                 )}
               </div>
               {plan.alternatives.length ? (
-                <section className="itinerary-alternatives" aria-labelledby="itinerary-alternatives-title">
+                <section
+                  className="itinerary-alternatives"
+                  aria-labelledby="itinerary-alternatives-title"
+                >
                   <div className="itinerary-section-heading">
                     <h3 id="itinerary-alternatives-title">可以替換的地點</h3>
                     <span>{plan.alternatives.length} 個選項</span>
                   </div>
                   {plan.alternatives.slice(0, 4).map((place) => (
-                    <PlaceCard key={stopKey(place)} place={place} onAction={() => addStop(place)} />
+                    <PlaceCard
+                      key={stopKey(place)}
+                      place={place}
+                      isAdded={isPlaceInItinerary(savedItinerary, toPlannedItineraryPlace(place))}
+                      onAction={() => addStop(place)}
+                    />
                   ))}
                 </section>
               ) : null}
@@ -427,20 +493,26 @@ export function ItineraryPage() {
         </div>
       </section>
 
-      {savedStops.length ? (
+      {savedItinerary.places.length ? (
         <section className="itinerary-saved" aria-labelledby="itinerary-saved-title">
           <div>
             <span className="itinerary-eyebrow">我的行程草稿</span>
-            <h2 id="itinerary-saved-title">已加入 {savedStops.length} 個地點</h2>
+            <h2 id="itinerary-saved-title">已加入 {savedItinerary.places.length} 個地點</h2>
           </div>
           <div className="itinerary-saved__list">
-            {savedStops.map((place) => (
-              <span key={stopKey(place)}>
+            {savedItinerary.places.map((place) => (
+              <span key={`${place.source}-${place.source_record_id}`}>
                 {place.name}
                 <button
                   type="button"
                   aria-label={`移除 ${place.name}`}
-                  onClick={() => setSavedStops((current) => current.filter((item) => stopKey(item) !== stopKey(place)))}
+                  onClick={() => {
+                    const next = removeItineraryPlace(savedItinerary, place);
+                    setSavedItinerary(next);
+                    if (!writeSavedItinerary(next)) {
+                      setError("地點已從目前行程移除，但本次變更未保存。請稍後重試。");
+                    }
+                  }}
                 >
                   ×
                 </button>
@@ -448,7 +520,8 @@ export function ItineraryPage() {
             ))}
           </div>
           <span className="itinerary-saved__hint">
-            <IconArrowRight aria-hidden="true" /> 目前先保存在這個頁面，之後可接分享與正式行程保存。
+            <IconArrowRight aria-hidden="true" /> 已保存於本機；
+            <Link href="/itinerary">前往我的行程管理與導航</Link>
           </span>
         </section>
       ) : null}

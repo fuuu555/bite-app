@@ -8,7 +8,19 @@ import type { ItineraryStop } from "@/features/itinerary/api/itinerary-api";
 type ItineraryMapProps = {
   latitude: number;
   longitude: number;
-  stops: ItineraryStop[];
+  stops: ItineraryMapStop[];
+};
+
+export type ItineraryMapStop = {
+  order: number;
+  role: ItineraryStop["role"];
+  place: Pick<ItineraryMapPlace, "latitude" | "longitude" | "icon_color">;
+};
+
+type ItineraryMapPlace = {
+  latitude: number;
+  longitude: number;
+  icon_color: string;
 };
 
 type ItineraryPointProperties = {
@@ -29,7 +41,16 @@ type PointFeatureCollection = {
   }>;
 };
 
-function stopFeatureCollection(stops: ItineraryStop[]): PointFeatureCollection {
+type RouteFeatureCollection = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    geometry: { type: "LineString"; coordinates: Array<[number, number]> };
+    properties: Record<string, never>;
+  }>;
+};
+
+function stopFeatureCollection(stops: ItineraryMapStop[]): PointFeatureCollection {
   return {
     type: "FeatureCollection",
     features: stops.map((stop) => ({
@@ -44,6 +65,22 @@ function stopFeatureCollection(stops: ItineraryStop[]): PointFeatureCollection {
         color: stop.place.icon_color,
       } satisfies ItineraryPointProperties,
     })),
+  };
+}
+
+function routeFeatureCollection(stops: ItineraryMapStop[]): RouteFeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: stops.map((stop) => [stop.place.longitude, stop.place.latitude]),
+        },
+        properties: {},
+      },
+    ],
   };
 }
 
@@ -74,8 +111,32 @@ export function ItineraryMap({ latitude, longitude, stops }: ItineraryMapProps) 
         .setPopup(new maplibregl.Popup({ offset: 18 }).setText("目前位置／搜尋中心"))
         .addTo(map);
 
+      if (stops.length) {
+        const bounds = new maplibregl.LngLatBounds([longitude, latitude], [longitude, latitude]);
+        stops.forEach((stop) => bounds.extend([stop.place.longitude, stop.place.latitude]));
+        map.fitBounds(bounds, { padding: 72, maxZoom: 14, duration: 0 });
+      }
+
       map.on("load", () => {
         if (!map) return;
+        if (stops.length > 1) {
+          map.addSource("itinerary-route", {
+            type: "geojson",
+            data: routeFeatureCollection(stops),
+          });
+          map.addLayer({
+            id: "itinerary-route-line",
+            type: "line",
+            source: "itinerary-route",
+            paint: {
+              "line-color": "#d96c4f",
+              "line-width": 4,
+              "line-opacity": 0.82,
+              "line-dasharray": [1, 1.2],
+            },
+            layout: { "line-cap": "round", "line-join": "round" },
+          });
+        }
         map.addSource("itinerary-stops", {
           type: "geojson",
           data: stopFeatureCollection(stops),

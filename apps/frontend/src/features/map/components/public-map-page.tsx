@@ -24,6 +24,19 @@ import {
 } from "@/features/map/components/map-search-controls";
 import { RestaurantPreviewCard } from "@/features/map/components/restaurant-preview-card";
 import { TourismPreviewCard } from "@/features/map/components/tourism-preview-card";
+import { ItinerarySummaryPanel } from "@/features/itinerary/components/itinerary-summary-panel";
+import {
+  addItineraryPlace,
+  emptyItinerary,
+  isPlaceInItinerary,
+  readSavedItinerary,
+  removeItineraryPlace,
+  toRestaurantItineraryPlace,
+  toTourismItineraryPlace,
+  writeSavedItinerary,
+  type SavedItinerary,
+  type SavedItineraryPlace,
+} from "@/features/itinerary/lib/itinerary-storage";
 import {
   defaultMapFilters,
   fetchPublicMapCuisines,
@@ -477,6 +490,7 @@ export function PublicMapPage() {
   tourismPlacesRef.current = tourismPlaces;
   const [selectedRestaurant, setSelectedRestaurant] = useState<MapRestaurant | null>(null);
   const [selectedTourismPlace, setSelectedTourismPlace] = useState<TourismPlace | null>(null);
+  const [savedItinerary, setSavedItinerary] = useState<SavedItinerary>(emptyItinerary);
   const [message, setMessage] = useState("正在取得位置…");
   const [messageTone, setMessageTone] = useState<"neutral" | "error">("neutral");
   const [searchQuery, setSearchQuery] = useState("");
@@ -494,6 +508,11 @@ export function PublicMapPage() {
   // 穩定的搜尋 callback 透過 ref 讀取最新篩選，避免重建 MapLibre 實例。
   const activeFiltersRef = useRef(activeFilters);
   activeFiltersRef.current = activeFilters;
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setSavedItinerary(readSavedItinerary()));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const searchMap = useCallback(async (map: MapLibreMap) => {
     // Only the newest viewport request may update results; failures intentionally keep existing markers.
@@ -891,6 +910,29 @@ export function PublicMapPage() {
     }
   }
 
+  function persistItinerary(next: SavedItinerary, successMessage: string) {
+    setSavedItinerary(next);
+    const saved = writeSavedItinerary(next);
+    setMessageTone(saved ? "neutral" : "error");
+    setMessage(saved ? successMessage : "已更新目前頁面，但本次變更未保存。請稍後重試。");
+  }
+
+  function addRestaurantToItinerary(restaurant: MapRestaurant) {
+    const place = toRestaurantItineraryPlace(restaurant);
+    if (isPlaceInItinerary(savedItinerary, place)) return;
+    persistItinerary(addItineraryPlace(savedItinerary, place), `已將「${restaurant.name}」加入行程。`);
+  }
+
+  function addTourismPlaceToItinerary(place: TourismPlace) {
+    const itineraryPlace = toTourismItineraryPlace(place);
+    if (isPlaceInItinerary(savedItinerary, itineraryPlace)) return;
+    persistItinerary(addItineraryPlace(savedItinerary, itineraryPlace), `已將「${place.name}」加入行程。`);
+  }
+
+  function removeFromItinerary(place: SavedItineraryPlace) {
+    persistItinerary(removeItineraryPlace(savedItinerary, place), `已從行程移除「${place.name}」。`);
+  }
+
   function toggleFilterPopover() {
     const opening = !isFilterOpen;
     if (opening) {
@@ -1046,6 +1088,10 @@ export function PublicMapPage() {
         <MapActiveFilterChips filters={activeFilters} cuisines={cuisines} onRemove={removeFilter} />
       </div>
 
+      <div className="public-map-itinerary-entry">
+        <ItinerarySummaryPanel itinerary={savedItinerary} onRemove={removeFromItinerary} />
+      </div>
+
       <p
         className={`public-map-message${messageTone === "error" ? " is-error" : ""}`}
         role="status"
@@ -1084,12 +1130,16 @@ export function PublicMapPage() {
       {selectedRestaurant ? (
         <RestaurantPreviewCard
           restaurant={selectedRestaurant}
+          isInItinerary={isPlaceInItinerary(savedItinerary, toRestaurantItineraryPlace(selectedRestaurant))}
+          onAddToItinerary={() => addRestaurantToItinerary(selectedRestaurant)}
           onClose={() => setSelectedRestaurant(null)}
         />
       ) : null}
       {selectedTourismPlace ? (
         <TourismPreviewCard
           place={selectedTourismPlace}
+          isInItinerary={isPlaceInItinerary(savedItinerary, toTourismItineraryPlace(selectedTourismPlace))}
+          onAddToItinerary={() => addTourismPlaceToItinerary(selectedTourismPlace)}
           onClose={() => setSelectedTourismPlace(null)}
         />
       ) : null}

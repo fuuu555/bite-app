@@ -87,6 +87,20 @@ test("public map auto-refreshes after moving and opens a restaurant preview", as
     await expect(page.locator(".restaurant-preview").getByText("台灣料理")).toBeVisible();
     await expect(page.getByRole("button", { name: "搜尋此區域" })).toHaveCount(0);
 
+    await page.getByRole("button", { name: "加入行程" }).click();
+    await expect(page.getByRole("button", { name: "已加入行程" })).toBeVisible();
+    await expect(page.getByText("1 個地點")).toBeVisible();
+    await page.locator(".itinerary-map-summary__link").click();
+    await expect(page).toHaveURL(/\/itinerary$/);
+    await expect(page.getByRole("heading", { name: /把想去的地方/ })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "今日行程" })).toBeVisible();
+    await expect(page.getByText("公開地圖驗收店家")).toBeVisible();
+    await page.getByRole("link", { name: "回到地圖" }).click();
+    await expect(page).toHaveURL(/\/map$/);
+    await expect(page.getByText("1 個地點")).toBeVisible();
+    await restaurantResult.click();
+    await expect(page.getByRole("heading", { name: "公開地圖驗收店家" })).toBeVisible();
+
     await page.getByRole("link", { name: "查看餐廳" }).click();
     await expect(page).toHaveURL(/\/restaurants\/71c352a3-6609-4dc7-9f76-8eb284a874b8$/);
     await expect(page.getByRole("heading", { name: "公開地圖驗收店家" })).toBeVisible();
