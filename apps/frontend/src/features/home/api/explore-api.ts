@@ -16,6 +16,13 @@ export type ExploreGoogleSignals = {
 };
 
 export type ExploreDistanceKm = 2 | 5 | 10;
+export type ExploreSort =
+  | "recommended"
+  | "distance"
+  | "price"
+  | "revisit_rate"
+  | "google_rating"
+  | "trust";
 
 export type ExploreLocation = {
   latitude: number;
@@ -63,7 +70,7 @@ export type ExploreRestaurant = {
 export type ExploreRestaurantsResponse = {
   status: "ok";
   query: string | null;
-  sort: "stable";
+  sort: ExploreSort;
   top_restaurants: ExploreRestaurant[];
   restaurants: ExploreRestaurant[];
 };
@@ -101,6 +108,7 @@ export type ExploreFilters = {
 export type ExploreUrlState = {
   query: string;
   filters: ExploreFilters;
+  sort: ExploreSort;
 };
 
 export class ExploreApiError extends Error {
@@ -115,14 +123,27 @@ type SearchParamReader = {
 
 const validPriceRanges = new Set(["under_200", "200_to_400", "400_to_800", "over_800"]);
 const validDistanceKm = new Set([2, 5, 10]);
+const validSorts = new Set<ExploreSort>([
+  "recommended",
+  "distance",
+  "price",
+  "revisit_rate",
+  "google_rating",
+  "trust",
+]);
 
-export function explorePageSearchParams(query: string, filters: ExploreFilters): URLSearchParams {
+export function explorePageSearchParams(
+  query: string,
+  filters: ExploreFilters,
+  sort: ExploreSort = "recommended",
+): URLSearchParams {
   const params = new URLSearchParams();
   const normalizedQuery = query.trim();
   if (normalizedQuery) params.set("q", normalizedQuery);
   if (filters.cuisineId) params.set("cuisine", filters.cuisineId);
   if (filters.priceRange) params.set("price", filters.priceRange);
   if (filters.distanceKm) params.set("distance", String(filters.distanceKm));
+  if (sort !== "recommended") params.set("sort", sort);
   return params;
 }
 
@@ -137,6 +158,9 @@ export function exploreUrlState(searchParams: SearchParamReader): ExploreUrlStat
         ? (Number(searchParams.get("distance")) as ExploreDistanceKm)
         : "",
     },
+    sort: validSorts.has(searchParams.get("sort") as ExploreSort)
+      ? (searchParams.get("sort") as ExploreSort)
+      : "recommended",
   };
 }
 
@@ -144,16 +168,17 @@ export function exploreSearchParams(
   query: string,
   filters: ExploreFilters,
   location?: ExploreLocation,
+  sort: ExploreSort = "recommended",
 ): URLSearchParams {
-  const params = new URLSearchParams({ sort: "stable", limit: "24" });
+  const params = new URLSearchParams({ sort, limit: "24" });
   const normalizedQuery = query.trim();
   if (normalizedQuery) params.set("q", normalizedQuery);
   if (filters.cuisineId) params.append("cuisine_ids", filters.cuisineId);
   if (filters.priceRange) params.append("price_ranges", filters.priceRange);
-  if (filters.distanceKm && location) {
-    params.set("distance_km", String(filters.distanceKm));
+  if (location) {
     params.set("latitude", String(location.latitude));
     params.set("longitude", String(location.longitude));
+    if (filters.distanceKm) params.set("distance_km", String(filters.distanceKm));
   }
   return params;
 }
@@ -163,9 +188,10 @@ export async function fetchExploreRestaurants(
   filters: ExploreFilters,
   location?: ExploreLocation,
   signal?: AbortSignal,
+  sort: ExploreSort = "recommended",
 ): Promise<ExploreRestaurantsResponse> {
   const response = await fetch(
-    `/api/v1/explore/restaurants?${exploreSearchParams(query, filters, location)}`,
+    `/api/v1/explore/restaurants?${exploreSearchParams(query, filters, location, sort)}`,
     {
       signal,
     },

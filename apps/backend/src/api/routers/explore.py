@@ -31,7 +31,7 @@ async def search_explore_restaurants(
     latitude: Annotated[float | None, Query(ge=-90, le=90)] = None,
     longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
     distance_km: Annotated[ExploreDistanceKm | None, Query()] = None,
-    sort: Annotated[ExploreSort, Query()] = "stable",
+    sort: Annotated[ExploreSort, Query()] = "recommended",
     limit: Annotated[int, Query(ge=1, le=50)] = 24,
 ) -> ExploreRestaurantsResponse:
     """Return one source for Top 3 and full results / 回傳 Top 3 與完整列表共用結果。"""
@@ -51,7 +51,6 @@ async def search_explore_restaurants(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="distance filter requires latitude and longitude",
         )
-    del sort  # Only the explicit stable skeleton strategy is currently available.
     return await query_explore_restaurants(
         session,
         query=query,
@@ -61,6 +60,7 @@ async def search_explore_restaurants(
         longitude=longitude,
         distance_km=distance_km,
         result_limit=limit,
+        sort=sort,
     )
 
 

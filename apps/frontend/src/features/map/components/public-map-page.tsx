@@ -2,7 +2,12 @@
 
 import { IconCurrentLocation, IconRefresh } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Map as MapLibreMap, Marker as MapLibreMarker } from "maplibre-gl";
+import type {
+  GeoJSONSource,
+  Map as MapLibreMap,
+  MapGeoJSONFeature,
+  MapMouseEvent,
+} from "maplibre-gl";
 
 import {
   MapActiveFilterChips,
@@ -24,7 +29,6 @@ import {
   type MapRestaurant,
 } from "@/features/map/api/public-map-api";
 
-type MapLibreModule = typeof import("maplibre-gl");
 type SavedViewport = { longitude: number; latitude: number; zoom: number };
 
 const defaultViewport: SavedViewport = {
@@ -38,6 +42,24 @@ const clusterDemoViewport: SavedViewport = {
   zoom: 13,
 };
 const viewportStorageKey = "bitemap-public-map-viewport";
+const restaurantSourceId = "public-map-restaurants";
+const clusterLayerId = "public-map-clusters";
+const clusterCountLayerId = "public-map-cluster-count";
+const restaurantLayerId = "public-map-restaurants-unclustered";
+const restaurantLabelLayerId = "public-map-restaurant-label";
+type RestaurantFeatureCollection = {
+  type: "FeatureCollection";
+  features: Array<{
+    type: "Feature";
+    geometry: { type: "Point"; coordinates: [number, number] };
+    properties: RestaurantFeatureProperties;
+  }>;
+};
+
+const emptyFeatureCollection: RestaurantFeatureCollection = {
+  type: "FeatureCollection",
+  features: [],
+};
 const clusterDemoCuisine: MapCuisine = {
   id: "cluster-demo-cuisine",
   display_name: "群聚測試",
@@ -68,15 +90,6 @@ const clusterDemoRestaurants: MapRestaurant[] = clusterDemoOffsets.map(
     photo_url: null,
   }),
 );
-
-type ClusteredMapItem =
-  | { kind: "restaurant"; restaurant: MapRestaurant; longitude: number; latitude: number }
-  | {
-      kind: "cluster";
-      restaurants: MapRestaurant[];
-      longitude: number;
-      latitude: number;
-    };
 
 function isClusterDemoEnabled() {
   return (
@@ -128,92 +141,128 @@ function currentBounds(map: MapLibreMap): MapBounds {
   };
 }
 
-function markerSizeForZoom(zoom: number) {
-  const size = Math.round(Math.max(24, Math.min(42, 18 + zoom * 1.5)));
+type RestaurantFeatureProperties = {
+  restaurant_id: string;
+  cuisine_color: string;
+  cuisine_initial: string;
+  is_selected: boolean;
+};
+
+function restaurantFeatureCollection(
+  restaurants: MapRestaurant[],
+  selectedRestaurantId: string | null,
+): RestaurantFeatureCollection {
   return {
-    size,
-    fontSize: Math.max(11, Math.round(size * 0.34)),
+    type: "FeatureCollection",
+    features: restaurants.map((restaurant) => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [restaurant.longitude, restaurant.latitude],
+      },
+      properties: {
+        restaurant_id: restaurant.id,
+        cuisine_color: restaurant.primary_cuisine.color,
+        cuisine_initial: restaurant.primary_cuisine.display_name.slice(0, 1),
+        is_selected: restaurant.id === selectedRestaurantId,
+      },
+    })),
   };
 }
 
-function updatePublicMapMarkerSizes(map: MapLibreMap) {
-  map
-    .getContainer()
-    .querySelectorAll<HTMLElement>(".public-map-marker")
-    .forEach((element) => updatePublicMapMarkerSizesForElement(element, map.getZoom()));
-}
+function addRestaurantSourceAndLayers(map: MapLibreMap) {
+  if (map.getSource(restaurantSourceId)) return;
 
-function updatePublicMapMarkerSizesForElement(element: HTMLElement, zoom: number) {
-  const { size, fontSize } = markerSizeForZoom(zoom);
-  const clusterBoost = element.classList.contains("public-map-cluster") ? 8 : 0;
-  element.style.setProperty("--marker-size", `${Math.min(54, size + clusterBoost)}px`);
-  element.style.setProperty(
-    "--marker-font-size",
-    `${Math.max(11, Math.round(fontSize + clusterBoost * 0.25))}px`,
-  );
-}
-
-function clusterRestaurants(
-  map: MapLibreMap,
-  restaurants: MapRestaurant[],
-  zoom: number,
-  isDemo: boolean,
-) {
-  const radius = isDemo ? (zoom >= 15 ? 32 : 1_200) : zoom >= 16 ? 44 : 64;
-  const clusters: Array<{
-    restaurants: MapRestaurant[];
-    longitude: number;
-    latitude: number;
-  }> = [];
-
-  restaurants.forEach((restaurant) => {
-    const point = map.project([restaurant.longitude, restaurant.latitude]);
-    const existingCluster = clusters.find((cluster) => {
-      const clusterPoint = map.project([cluster.longitude, cluster.latitude]);
-      return Math.hypot(point.x - clusterPoint.x, point.y - clusterPoint.y) <= radius;
-    });
-
-    if (!existingCluster) {
-      clusters.push({
-        restaurants: [restaurant],
-        longitude: restaurant.longitude,
-        latitude: restaurant.latitude,
-      });
-      return;
-    }
-
-    existingCluster.restaurants.push(restaurant);
-    existingCluster.longitude =
-      existingCluster.restaurants.reduce((sum, item) => sum + item.longitude, 0) /
-      existingCluster.restaurants.length;
-    existingCluster.latitude =
-      existingCluster.restaurants.reduce((sum, item) => sum + item.latitude, 0) /
-      existingCluster.restaurants.length;
+  map.addSource(restaurantSourceId, {
+    type: "geojson",
+    data: emptyFeatureCollection,
+    cluster: true,
+    clusterMaxZoom: 15,
+    clusterRadius: 52,
   });
+  map.addLayer({
+    id: clusterLayerId,
+    type: "circle",
+    source: restaurantSourceId,
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-color": [
+        "step",
+        ["get", "point_count"],
+        "#4e8f6b",
+        10,
+        "#3d7c61",
+        50,
+        "#2d624e",
+      ],
+      "circle-radius": ["step", ["get", "point_count"], 20, 10, 24, 50, 29],
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": 2,
+    },
+  });
+  map.addLayer({
+    id: clusterCountLayerId,
+    type: "symbol",
+    source: restaurantSourceId,
+    filter: ["has", "point_count"],
+    layout: {
+      "text-field": [
+        "case",
+        [">", ["get", "point_count"], 100],
+        "100+",
+        ["to-string", ["get", "point_count"]],
+      ],
+      "text-size": 13,
+      "text-font": ["Open Sans Bold"],
+    },
+    paint: { "text-color": "#ffffff" },
+  });
+  map.addLayer({
+    id: restaurantLayerId,
+    type: "circle",
+    source: restaurantSourceId,
+    filter: ["!", ["has", "point_count"]],
+    paint: {
+      "circle-color": ["get", "cuisine_color"],
+      "circle-radius": ["case", ["get", "is_selected"], 12, 10],
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": 2,
+    },
+  });
+  map.addLayer({
+    id: restaurantLabelLayerId,
+    type: "symbol",
+    source: restaurantSourceId,
+    filter: ["!", ["has", "point_count"]],
+    layout: {
+      "text-field": ["get", "cuisine_initial"],
+      "text-size": 11,
+      "text-allow-overlap": true,
+    },
+    paint: { "text-color": "#ffffff" },
+  });
+}
 
-  return clusters.map<ClusteredMapItem>((cluster) =>
-    cluster.restaurants.length === 1
-      ? {
-          kind: "restaurant",
-          restaurant: cluster.restaurants[0],
-          longitude: cluster.longitude,
-          latitude: cluster.latitude,
-        }
-      : { kind: "cluster", ...cluster },
-  );
+function sourceFromMap(map: MapLibreMap) {
+  return map.getSource(restaurantSourceId) as GeoJSONSource | undefined;
+}
+
+function featureAtMapPoint(map: MapLibreMap, event: MapMouseEvent) {
+  return map.queryRenderedFeatures(event.point, {
+    layers: [clusterLayerId, clusterCountLayerId, restaurantLayerId],
+  })[0] as MapGeoJSONFeature | undefined;
 }
 
 export function PublicMapPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
-  const maplibreRef = useRef<MapLibreModule | null>(null);
-  const markersRef = useRef<MapLibreMarker[]>([]);
   const abortRef = useRef<AbortController | null>(null);
   const [retryKey, setRetryKey] = useState(0);
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
   const [restaurants, setRestaurants] = useState<MapRestaurant[]>([]);
+  const restaurantsRef = useRef<MapRestaurant[]>([]);
+  restaurantsRef.current = restaurants;
   const [selectedRestaurant, setSelectedRestaurant] = useState<MapRestaurant | null>(null);
-  const [mapZoom, setMapZoom] = useState(defaultViewport.zoom);
   const [message, setMessage] = useState("正在取得位置…");
   const [messageTone, setMessageTone] = useState<"neutral" | "error">("neutral");
   const [searchQuery, setSearchQuery] = useState("");
@@ -344,7 +393,6 @@ export function PublicMapPage() {
       const maplibregl = await import("maplibre-gl");
       if (disposed || !containerRef.current) return;
       maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
-      maplibreRef.current = maplibregl;
       let mapReady = false;
       let userMoved = false;
       let pendingPosition: GeolocationPosition | null = null;
@@ -393,8 +441,8 @@ export function PublicMapPage() {
       map.once("load", () => {
         if (disposed) return;
         mapReady = true;
+        addRestaurantSourceAndLayers(map);
         if (pendingPosition) applyLocation(pendingPosition);
-        setMapZoom(map.getZoom());
         setMapStatus("ready");
         void searchMap(map);
         map.on("moveend", () => {
@@ -403,13 +451,33 @@ export function PublicMapPage() {
             if (!disposed) void searchMap(map);
           }, 450);
         });
-        map.on("zoom", () => updatePublicMapMarkerSizes(map));
-        map.on("zoomend", () => setMapZoom(map.getZoom()));
       });
-      map.on("click", () => {
-        setSelectedRestaurant(null);
-        setSearchResults(null);
-        setIsFilterOpen(false);
+      map.on("click", async (event) => {
+        const feature = featureAtMapPoint(map, event);
+        if (!feature) {
+          setSelectedRestaurant(null);
+          setSearchResults(null);
+          setIsFilterOpen(false);
+          return;
+        }
+
+        if (feature.properties?.cluster_id !== undefined) {
+          const source = sourceFromMap(map);
+          if (!source) return;
+          const clusterId = Number(feature.properties.cluster_id);
+          const expansionZoom = await source.getClusterExpansionZoom(clusterId);
+          if (disposed || feature.geometry.type !== "Point") return;
+          map.easeTo({
+            center: feature.geometry.coordinates as [number, number],
+            zoom: Math.min(expansionZoom, 18),
+            duration: 350,
+          });
+          return;
+        }
+
+        const restaurantId = String(feature.properties?.restaurant_id ?? "");
+        const restaurant = restaurantsRef.current.find((item) => item.id === restaurantId);
+        if (restaurant) setSelectedRestaurant(restaurant);
       });
       map.on("error", () => {
         if (!map.loaded()) {
@@ -427,65 +495,17 @@ export function PublicMapPage() {
       disposed = true;
       if (moveSearchTimer !== null) window.clearTimeout(moveSearchTimer);
       abortRef.current?.abort();
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
       mapRef.current?.remove();
       mapRef.current = null;
-      maplibreRef.current = null;
     };
   }, [retryKey, searchMap]);
 
   useEffect(() => {
     const map = mapRef.current;
-    const maplibregl = maplibreRef.current;
-    if (!map || !maplibregl || mapStatus !== "ready") return;
-
-    // Rebuild imperative markers from React state to keep selection and clustering synchronized.
-    // 依 React 狀態重建命令式標記，讓選取狀態與群聚結果保持同步。
-    markersRef.current.forEach((marker) => marker.remove());
-    const markerItems = clusterRestaurants(map, restaurants, mapZoom, isClusterDemoEnabled());
-    markersRef.current = markerItems.map((item) => {
-      const markerElement = document.createElement("button");
-      markerElement.type = "button";
-      if (item.kind === "cluster") {
-        markerElement.className = "public-map-marker public-map-cluster";
-        markerElement.textContent = String(item.restaurants.length);
-        markerElement.setAttribute(
-          "aria-label",
-          `${item.restaurants.length} 間店家群聚，點擊放大地圖`,
-        );
-        markerElement.addEventListener("click", (event) => {
-          event.stopPropagation();
-          map.easeTo({
-            center: [item.longitude, item.latitude],
-            zoom: Math.min(map.getZoom() + 2, 18),
-            duration: 350,
-          });
-        });
-      } else {
-        const markerLabel = document.createElement("span");
-        markerElement.className = "public-map-marker";
-        if (selectedRestaurant?.id === item.restaurant.id) {
-          markerElement.classList.add("public-map-marker--focused");
-        }
-        markerElement.style.setProperty("--marker-color", item.restaurant.primary_cuisine.color);
-        markerLabel.textContent = item.restaurant.primary_cuisine.display_name.slice(0, 1);
-        markerElement.append(markerLabel);
-        markerElement.setAttribute(
-          "aria-label",
-          `${item.restaurant.name}，${item.restaurant.primary_cuisine.display_name}`,
-        );
-        markerElement.addEventListener("click", (event) => {
-          event.stopPropagation();
-          setSelectedRestaurant(item.restaurant);
-        });
-      }
-      updatePublicMapMarkerSizesForElement(markerElement, map.getZoom());
-      return new maplibregl.Marker({ element: markerElement, anchor: "bottom" })
-        .setLngLat([item.longitude, item.latitude])
-        .addTo(map);
-    });
-  }, [mapStatus, mapZoom, restaurants, selectedRestaurant]);
+    const source = map ? sourceFromMap(map) : undefined;
+    if (!source || mapStatus !== "ready") return;
+    source.setData(restaurantFeatureCollection(restaurants, selectedRestaurant?.id ?? null));
+  }, [mapStatus, restaurants, selectedRestaurant]);
 
   async function returnToCurrentLocation() {
     const map = mapRef.current;

@@ -14,7 +14,7 @@ import {
 describe("explore API client", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("serializes name and active conditions with the stable skeleton sort", () => {
+  it("serializes name, active conditions, and the recommended sort", () => {
     const filters: ExploreFilters = {
       cuisineId: "cuisine-id",
       priceRange: "200_to_400",
@@ -22,7 +22,7 @@ describe("explore API client", () => {
     };
 
     expect(exploreSearchParams("  拉麵  ", filters).toString()).toBe(
-      "sort=stable&limit=24&q=%E6%8B%89%E9%BA%B5&cuisine_ids=cuisine-id&price_ranges=200_to_400",
+      "sort=recommended&limit=24&q=%E6%8B%89%E9%BA%B5&cuisine_ids=cuisine-id&price_ranges=200_to_400",
     );
   });
 
@@ -56,6 +56,7 @@ describe("explore API client", () => {
     ).toEqual({
       query: "拉麵",
       filters: { cuisineId: "cuisine-id", priceRange: "200_to_400", distanceKm: "" },
+      sort: "recommended",
     });
     expect(exploreUrlState(new URLSearchParams("price=not-a-price")).filters.priceRange).toBe("");
     expect(exploreUrlState(new URLSearchParams("distance=5")).filters.distanceKm).toBe(5);

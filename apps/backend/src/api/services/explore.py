@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Any
 
 from geoalchemy2 import Geography
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -21,6 +22,7 @@ from api.domain.schemas import (
     ExploreRestaurantDetailResponse,
     ExploreRestaurantsResponse,
     ExploreRestaurantSummaryResponse,
+    ExploreSort,
     MapCuisineResponse,
     PriceRange,
 )
@@ -29,7 +31,7 @@ from api.integrations.google_places import (
     fetch_google_signals,
     fetch_google_signals_batch,
 )
-from api.services.ranking import RestaurantRanking, stable_restaurant_ranking
+from api.services.ranking import rank_restaurants
 from api.services.reviews import get_restaurant_app_stats
 
 
@@ -43,12 +45,9 @@ async def query_explore_restaurants(
     longitude: float | None,
     distance_km: ExploreDistanceKm | None,
     result_limit: int,
-    ranking: RestaurantRanking = stable_restaurant_ranking,
+    sort: ExploreSort = "recommended",
 ) -> ExploreRestaurantsResponse:
-    """Search existing published restaurants with an explicit stable order.
-
-    搜尋既有已發布店家；綜合分數尚未確認，因此只提供明確穩定排序。
-    """
+    """Search, score, and rank existing published restaurants / 搜尋並排序已發布店家。"""
     statement: Select[Any] = (
         select(Restaurant)
         .options(
@@ -61,7 +60,6 @@ async def query_explore_restaurants(
             Restaurant.primary_cuisine_id.is_not(None),
             Restaurant.price_range.is_not(None),
         )
-        .order_by(func.lower(Restaurant.name), Restaurant.id)
     )
     origin = _origin_point(latitude, longitude)
     if origin is not None:
@@ -72,13 +70,18 @@ async def query_explore_restaurants(
                 func.ST_DWithin(Restaurant.location, origin, distance_km * 1000),
             )
     if query:
-        statement = statement.where(func.lower(Restaurant.name).contains(query.casefold()))
+        statement = statement.where(
+            or_(
+                func.lower(Restaurant.name).contains(query.casefold()),
+                func.lower(Restaurant.address).contains(query.casefold()),
+                _search_document_expression().op("@@")(func.websearch_to_tsquery("simple", query)),
+                _normalized_address_expression().contains(_normalize_search_term(query)),
+            )
+        )
     if cuisine_ids:
         statement = statement.where(Restaurant.primary_cuisine_id.in_(cuisine_ids))
     if price_ranges:
         statement = statement.where(Restaurant.price_range.in_(price_ranges))
-    statement = statement.limit(result_limit)
-
     rows = list((await session.execute(statement)).all())
     if origin is None:
         restaurants = [row[0] for row in rows]
@@ -86,9 +89,8 @@ async def query_explore_restaurants(
     else:
         restaurants = [row[0] for row in rows]
         distances = {row[0].id: float(row[1]) for row in rows}
-    ranked = ranking.rank(restaurants)
     app_stats = await get_restaurant_app_stats(session, [item.id for item in restaurants])
-    explore_items = [item for item in ranked if _is_explore_ready(item)]
+    explore_items = [item for item in restaurants if _is_explore_ready(item)]
     enabled_items = [item for item in explore_items if item.google_lookup_enabled]
     google_signals = await fetch_google_signals_batch(
         [
@@ -105,6 +107,14 @@ async def query_explore_restaurants(
     google_by_restaurant_id = dict(
         zip((item.id for item in enabled_items), google_signals, strict=True)
     )
+    ranked = rank_restaurants(
+        explore_items,
+        sort=sort,
+        distances=distances,
+        app_signals=app_stats,
+        google_signals=google_by_restaurant_id,
+        price_filter_active=bool(price_ranges),
+    )
     responses = [
         _summary_response(
             item,
@@ -112,13 +122,13 @@ async def query_explore_restaurants(
             app_signals=app_stats.get(item.id),
             google_signals=google_by_restaurant_id.get(item.id),
         )
-        for item in explore_items
+        for item in ranked
     ]
     return ExploreRestaurantsResponse(
         query=query,
-        sort=ranking.key,
+        sort=sort,
         top_restaurants=responses[:3],
-        restaurants=responses,
+        restaurants=responses[:result_limit],
     )
 
 
@@ -226,3 +236,43 @@ def _origin_point(latitude: float | None, longitude: float | None):
     return func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326).cast(
         Geography(geometry_type="POINT", srid=4326)
     )
+
+
+def _search_document_expression():
+    return func.to_tsvector(
+        "simple",
+        func.concat_ws(
+            " ",
+            func.coalesce(Restaurant.name, ""),
+            func.coalesce(Restaurant.address, ""),
+        ),
+    )
+
+
+def _normalized_address_expression():
+    normalized = func.lower(Restaurant.address)
+    for source, target in (
+        ("台灣", ""),
+        ("臺灣", ""),
+        ("台", "臺"),
+        ("巿", "市"),
+        (" ", ""),
+        (",", ""),
+        ("，", ""),
+        ("、", ""),
+        (".", ""),
+        ("．", ""),
+        ("·", ""),
+        ("-", ""),
+        ("－", ""),
+        ("—", ""),
+    ):
+        normalized = func.replace(normalized, source, target)
+    return normalized
+
+
+def _normalize_search_term(value: str) -> str:
+    normalized = value.strip().casefold()
+    normalized = normalized.replace("台灣", "").replace("臺灣", "")
+    normalized = normalized.replace("台", "臺").replace("巿", "市")
+    return re.sub(r"[\s,，、.．·\-－—]", "", normalized)

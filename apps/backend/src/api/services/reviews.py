@@ -73,6 +73,7 @@ async def get_restaurant_app_stats(
             will_return_count=will_return_count,
             neutral_count=int(row.neutral_count or 0),
             will_not_return_count=int(row.will_not_return_count or 0),
+            trust_level=("high" if count >= 10 else "medium" if count >= 3 else "low"),
         )
     return stats
 

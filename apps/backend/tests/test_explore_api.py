@@ -121,7 +121,7 @@ async def test_explore_search_and_detail_share_published_restaurants(
             )
             assert response.status_code == 200
             payload = response.json()
-            assert payload["sort"] == "stable"
+            assert payload["sort"] == "recommended"
             assert [item["name"] for item in payload["restaurants"]] == [
                 "Alpha 探索拉麵",
                 "Beta 探索拉麵",

@@ -59,6 +59,35 @@ export type AvatarAsset = {
   updated_at: string;
 };
 
+export type MapQueryMetric = {
+  occurred_at: string;
+  duration_ms: number;
+  result_count: number;
+  cache_hit: boolean;
+  response_status: "ok" | "zoom_required" | "error";
+  query_summary: string;
+};
+
+export type MapPerformanceMetrics = {
+  window_minutes: number;
+  query_count: number;
+  average_duration_ms: number;
+  p95_duration_ms: number;
+  cache_hits: number;
+  cache_misses: number;
+  cache_hit_rate: number;
+  zoom_required_count: number;
+  zoom_required_rate: number;
+  error_count: number;
+  error_rate: number;
+  published_restaurant_count: number;
+  cache_entries: number;
+  status: "normal" | "attention" | "critical";
+  alerts: string[];
+  last_updated_at: string;
+  recent_queries: MapQueryMetric[];
+};
+
 export class AdminApiError extends Error {
   constructor(
     public readonly status: number,

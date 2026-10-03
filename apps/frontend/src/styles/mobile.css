@@ -23,7 +23,7 @@
 
   .admin-nav {
     width: 100%;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 8px;
   }
 
@@ -57,6 +57,18 @@
 
   .admin-page h1 {
     font-size: 1.65rem;
+  }
+
+  .monitoring-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .monitoring-panel {
+    padding: 18px;
+  }
+
+  .monitoring-panel__heading {
+    flex-direction: column;
   }
 
   .data-table {

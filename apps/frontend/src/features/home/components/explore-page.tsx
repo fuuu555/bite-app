@@ -18,6 +18,7 @@ import {
   type ExploreLocation,
   type ExploreRestaurant,
   type ExploreRestaurantsResponse,
+  type ExploreSort,
   explorePageSearchParams,
   exploreUrlState,
   fetchExploreRestaurants,
@@ -35,6 +36,15 @@ function parseDistance(value: string): ExploreDistanceKm | "" {
   if (value === "2" || value === "5" || value === "10") return Number(value) as ExploreDistanceKm;
   return "";
 }
+
+const sortOptions: Array<{ value: ExploreSort; label: string }> = [
+  { value: "recommended", label: "推薦排序" },
+  { value: "distance", label: "距離最近" },
+  { value: "price", label: "價格由低到高" },
+  { value: "revisit_rate", label: "App 再訪率" },
+  { value: "google_rating", label: "Google 評分" },
+  { value: "trust", label: "評論可信度" },
+];
 
 function RestaurantScores({ restaurant }: { restaurant: ExploreRestaurant }) {
   return (
@@ -140,9 +150,11 @@ function RestaurantResultRow({ restaurant }: { restaurant: ExploreRestaurant }) 
 function ExplorePageContent({
   initialQuery,
   initialFilters,
+  initialSort,
 }: {
   initialQuery: string;
   initialFilters: ExploreFilters;
+  initialSort: ExploreSort;
 }) {
   const router = useRouter();
   const query = initialQuery;
@@ -154,9 +166,10 @@ function ExplorePageContent({
   const [cuisines, setCuisines] = useState<MapCuisine[]>([]);
   const [location, setLocation] = useState<ExploreLocation | null>(null);
   const [result, setResult] = useState<ExploreRestaurantsResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(!hasInvalidQuery && !filters.distanceKm);
+  const requiresLocation = Boolean(filters.distanceKm) || initialSort === "distance";
+  const [isLoading, setIsLoading] = useState(!hasInvalidQuery);
   const [error, setError] = useState<string | null>(hasInvalidQuery ? invalidQueryMessage : null);
-  const canSearchByDistance = !filters.distanceKm || location !== null;
+  const canSearchByDistance = !requiresLocation || location !== null;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -169,7 +182,7 @@ function ExplorePageContent({
   }, []);
 
   useEffect(() => {
-    if (!filters.distanceKm || location) return;
+    if (!requiresLocation || location) return;
 
     if (!navigator.geolocation) {
       const timeoutId = window.setTimeout(() => {
@@ -189,13 +202,19 @@ function ExplorePageContent({
       },
       { enableHighAccuracy: false, maximumAge: 300_000, timeout: 10_000 },
     );
-  }, [filters.distanceKm, location]);
+  }, [location, requiresLocation]);
 
   useEffect(() => {
     if (hasInvalidQuery || !canSearchByDistance) return;
 
     const controller = new AbortController();
-    fetchExploreRestaurants(normalizedQuery, filters, location ?? undefined, controller.signal)
+    fetchExploreRestaurants(
+      normalizedQuery,
+      filters,
+      location ?? undefined,
+      controller.signal,
+      initialSort,
+    )
       .then(setResult)
       .catch((requestError) => {
         if (controller.signal.aborted) return;
@@ -210,11 +229,16 @@ function ExplorePageContent({
       });
 
     return () => controller.abort();
-  }, [canSearchByDistance, filters, hasInvalidQuery, location, normalizedQuery]);
+  }, [canSearchByDistance, filters, hasInvalidQuery, initialSort, location, normalizedQuery]);
 
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const params = explorePageSearchParams(draftQuery, draftFilters);
+    const params = explorePageSearchParams(draftQuery, draftFilters, initialSort);
+    router.push(params.size ? `/?${params.toString()}` : "/");
+  }
+
+  function changeSort(value: ExploreSort) {
+    const params = explorePageSearchParams(query, filters, value);
     router.push(params.size ? `/?${params.toString()}` : "/");
   }
 
@@ -244,7 +268,7 @@ function ExplorePageContent({
               type="search"
               value={draftQuery}
               onChange={(event) => setDraftQuery(event.target.value)}
-              placeholder="輸入餐廳名稱"
+              placeholder="輸入餐廳名稱或地址"
             />
           </span>
         </label>
@@ -340,8 +364,12 @@ function ExplorePageContent({
           </h2>
           <label className="explore-sort">
             <span>排序</span>
-            <select disabled>
-              <option>推薦排序</option>
+            <select value={initialSort} onChange={(event) => changeSort(event.target.value as ExploreSort)}>
+              {sortOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -371,6 +399,7 @@ function ExplorePageUrlState() {
       key={searchParams.toString()}
       initialQuery={urlState.query}
       initialFilters={urlState.filters}
+      initialSort={urlState.sort}
     />
   );
 }

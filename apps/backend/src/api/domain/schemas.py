@@ -380,6 +380,35 @@ class MapRestaurantsResponse(BaseModel):
     restaurants: list[MapRestaurantResponse]
 
 
+class MapQueryMetricResponse(BaseModel):
+    occurred_at: datetime
+    duration_ms: float
+    result_count: int
+    cache_hit: bool
+    response_status: Literal["ok", "zoom_required", "error"]
+    query_summary: str
+
+
+class MapPerformanceMetricsResponse(BaseModel):
+    window_minutes: int
+    query_count: int
+    average_duration_ms: float
+    p95_duration_ms: float
+    cache_hits: int
+    cache_misses: int
+    cache_hit_rate: float
+    zoom_required_count: int
+    zoom_required_rate: float
+    error_count: int
+    error_rate: float
+    published_restaurant_count: int
+    cache_entries: int
+    status: Literal["normal", "attention", "critical"]
+    alerts: list[str]
+    last_updated_at: datetime
+    recent_queries: list[MapQueryMetricResponse]
+
+
 class MapSearchResponse(BaseModel):
     """Published restaurant search results / 已發布店家搜尋結果。"""
 
@@ -387,7 +416,15 @@ class MapSearchResponse(BaseModel):
     restaurants: list[MapRestaurantResponse]
 
 
-ExploreSort = Literal["stable"]
+ExploreSort = Literal[
+    "recommended",
+    "distance",
+    "price",
+    "revisit_rate",
+    "google_rating",
+    "trust",
+    "stable",
+]
 ExploreDistanceKm = Literal[2, 5, 10]
 ExploreTrustLevel = Literal["high", "medium", "low"]
 

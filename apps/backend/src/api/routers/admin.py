@@ -16,7 +16,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -48,6 +48,7 @@ from api.domain.schemas import (
     CuisineUpdate,
     GeocodeRequest,
     GeocodeResponse,
+    MapPerformanceMetricsResponse,
     RestaurantCreate,
     RestaurantMenuCreate,
     RestaurantMenuResponse,
@@ -68,6 +69,11 @@ from api.services.admin import (
     update_restaurant,
 )
 from api.services.avatar_assets import create_avatar_asset
+from api.services.map_observability import (
+    clear_map_query_cache,
+    map_performance_monitor,
+    map_query_cache,
+)
 from api.services.profile import avatar_asset_response
 from api.services.restaurant_content import (
     create_menu,
@@ -242,13 +248,29 @@ async def list_restaurants(_: AdminDep, session: SessionDep) -> list[RestaurantR
     return [restaurant_response(item) for item in result.scalars()]
 
 
+@router.get("/monitoring/map", response_model=MapPerformanceMetricsResponse)
+async def read_map_monitoring(_: AdminDep, session: SessionDep) -> MapPerformanceMetricsResponse:
+    """Return rolling map query metrics for administrators / 管理員地圖效能監控。"""
+    published_count = await session.scalar(
+        select(func.count(Restaurant.id)).where(Restaurant.status == "published")
+    )
+    return MapPerformanceMetricsResponse.model_validate(
+        map_performance_monitor.snapshot(
+            published_restaurant_count=int(published_count or 0),
+            cache_entries=map_query_cache.size,
+        )
+    )
+
+
 @router.post("/restaurants", response_model=RestaurantResponse, status_code=status.HTTP_201_CREATED)
 async def create_restaurant_endpoint(
     payload: RestaurantCreate,
     admin: AdminDep,
     session: SessionDep,
 ) -> RestaurantResponse:
-    return restaurant_response(await create_restaurant(session, admin, payload))
+    restaurant = await create_restaurant(session, admin, payload)
+    clear_map_query_cache()
+    return restaurant_response(restaurant)
 
 
 @router.get("/restaurants/{restaurant_id}", response_model=RestaurantResponse)
@@ -268,7 +290,9 @@ async def patch_restaurant(
     session: SessionDep,
 ) -> RestaurantResponse:
     restaurant = await get_restaurant(session, restaurant_id)
-    return restaurant_response(await update_restaurant(session, admin, restaurant, payload))
+    updated = await update_restaurant(session, admin, restaurant, payload)
+    clear_map_query_cache()
+    return restaurant_response(updated)
 
 
 @router.post("/restaurants/{restaurant_id}/publish", response_model=RestaurantResponse)
@@ -278,9 +302,9 @@ async def publish_restaurant(
     session: SessionDep,
 ) -> RestaurantResponse:
     restaurant = await get_restaurant(session, restaurant_id)
-    return restaurant_response(
-        await change_restaurant_status(session, admin, restaurant, "published")
-    )
+    updated = await change_restaurant_status(session, admin, restaurant, "published")
+    clear_map_query_cache()
+    return restaurant_response(updated)
 
 
 @router.post("/restaurants/{restaurant_id}/archive", response_model=RestaurantResponse)
@@ -290,9 +314,9 @@ async def archive_restaurant(
     session: SessionDep,
 ) -> RestaurantResponse:
     restaurant = await get_restaurant(session, restaurant_id)
-    return restaurant_response(
-        await change_restaurant_status(session, admin, restaurant, "archived")
-    )
+    updated = await change_restaurant_status(session, admin, restaurant, "archived")
+    clear_map_query_cache()
+    return restaurant_response(updated)
 
 
 @router.post("/restaurants/{restaurant_id}/restore", response_model=RestaurantResponse)
@@ -303,7 +327,9 @@ async def restore_restaurant(
 ) -> RestaurantResponse:
     """Restore an archived restaurant to an editable draft / 將封存店家解封為草稿。"""
     restaurant = await get_restaurant(session, restaurant_id)
-    return restaurant_response(await change_restaurant_status(session, admin, restaurant, "draft"))
+    updated = await change_restaurant_status(session, admin, restaurant, "draft")
+    clear_map_query_cache()
+    return restaurant_response(updated)
 
 
 @router.delete("/restaurants/{restaurant_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -317,6 +343,7 @@ async def delete_restaurant(
     if result.rowcount == 0:  # type: ignore[attr-defined]
         raise HTTPException(status_code=404, detail="restaurant not found")
     await session.commit()
+    clear_map_query_cache()
 
 
 @router.get(
@@ -395,7 +422,9 @@ async def create_restaurant_photo(
     _: AdminDep,
     session: SessionDep,
 ) -> RestaurantPhoto:
-    return await create_photo(session, restaurant_id, payload)
+    photo = await create_photo(session, restaurant_id, payload)
+    clear_map_query_cache()
+    return photo
 
 
 @router.patch(
@@ -409,7 +438,9 @@ async def patch_restaurant_photo(
     _: AdminDep,
     session: SessionDep,
 ) -> RestaurantPhoto:
-    return await update_photo(session, restaurant_id, photo_id, payload)
+    photo = await update_photo(session, restaurant_id, photo_id, payload)
+    clear_map_query_cache()
+    return photo
 
 
 @router.delete(
@@ -423,6 +454,7 @@ async def remove_restaurant_photo(
     session: SessionDep,
 ) -> None:
     await delete_photo(session, restaurant_id, photo_id)
+    clear_map_query_cache()
 
 
 @router.post("/geocode", response_model=GeocodeResponse)
