@@ -1,6 +1,3 @@
-# BiteMap 開發計畫
-
-本計畫依據 [`FUNCTIONAL_REQUIREMENTS.md`](./FUNCTIONAL_REQUIREMENTS.md) 與 [`README.MD`](./README.MD) 制定。
 
 ## 1. 開發策略
 

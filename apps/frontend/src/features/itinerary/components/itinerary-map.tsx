@@ -11,6 +11,8 @@ type ItineraryMapProps = {
   longitude: number;
   stops: ItineraryMapStop[];
   showRoute?: boolean;
+  fitToStopsOnly?: boolean;
+  showOriginMarker?: boolean;
 };
 
 export type ItineraryMapStop = {
@@ -86,7 +88,14 @@ function routeFeatureCollection(stops: ItineraryMapStop[]): RouteFeatureCollecti
   };
 }
 
-export function ItineraryMap({ latitude, longitude, stops, showRoute = true }: ItineraryMapProps) {
+export function ItineraryMap({
+  latitude,
+  longitude,
+  stops,
+  showRoute = true,
+  fitToStopsOnly = false,
+  showOriginMarker = true,
+}: ItineraryMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -108,14 +117,25 @@ export function ItineraryMap({ latitude, longitude, stops, showRoute = true }: I
         attributionControl: false,
       });
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
-      originMarker = new maplibregl.Marker({ color: "#142B32" })
-        .setLngLat([longitude, latitude])
-        .setPopup(new maplibregl.Popup({ offset: 18 }).setText("目前位置／搜尋中心"))
-        .addTo(map);
+      if (showOriginMarker) {
+        originMarker = new maplibregl.Marker({ color: "#142B32" })
+          .setLngLat([longitude, latitude])
+          .setPopup(new maplibregl.Popup({ offset: 18 }).setText("目前位置／搜尋中心"))
+          .addTo(map);
+      }
 
       if (stops.length) {
-        const bounds = new maplibregl.LngLatBounds([longitude, latitude], [longitude, latitude]);
-        stops.forEach((stop) => bounds.extend([stop.place.longitude, stop.place.latitude]));
+        const firstStop = stops[0];
+        const bounds =
+          fitToStopsOnly && firstStop
+            ? new maplibregl.LngLatBounds(
+                [firstStop.place.longitude, firstStop.place.latitude],
+                [firstStop.place.longitude, firstStop.place.latitude],
+              )
+            : new maplibregl.LngLatBounds([longitude, latitude], [longitude, latitude]);
+        stops
+          .slice(fitToStopsOnly ? 1 : 0)
+          .forEach((stop) => bounds.extend([stop.place.longitude, stop.place.latitude]));
         map.fitBounds(bounds, { padding: 72, maxZoom: 14, duration: 0 });
       }
 
@@ -174,7 +194,7 @@ export function ItineraryMap({ latitude, longitude, stops, showRoute = true }: I
       originMarker?.remove();
       map?.remove();
     };
-  }, [latitude, longitude, showRoute, stops]);
+  }, [fitToStopsOnly, latitude, longitude, showOriginMarker, showRoute, stops]);
 
   return <div ref={containerRef} className="itinerary-map" aria-label="旅遊行程地圖" />;
 }

@@ -1,11 +1,14 @@
 "use client";
 
 import {
+  IconArrowRight,
   IconCurrentLocation,
   IconMapPin,
   IconRefresh,
+  IconSparkles,
   IconToolsKitchen3,
 } from "@tabler/icons-react";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   GeoJSONSource,
@@ -920,17 +923,26 @@ export function PublicMapPage() {
   function addRestaurantToItinerary(restaurant: MapRestaurant) {
     const place = toRestaurantItineraryPlace(restaurant);
     if (isPlaceInItinerary(savedItinerary, place)) return;
-    persistItinerary(addItineraryPlace(savedItinerary, place), `已將「${restaurant.name}」加入行程。`);
+    persistItinerary(
+      addItineraryPlace(savedItinerary, place),
+      `已將「${restaurant.name}」加入行程。`,
+    );
   }
 
   function addTourismPlaceToItinerary(place: TourismPlace) {
     const itineraryPlace = toTourismItineraryPlace(place);
     if (isPlaceInItinerary(savedItinerary, itineraryPlace)) return;
-    persistItinerary(addItineraryPlace(savedItinerary, itineraryPlace), `已將「${place.name}」加入行程。`);
+    persistItinerary(
+      addItineraryPlace(savedItinerary, itineraryPlace),
+      `已將「${place.name}」加入行程。`,
+    );
   }
 
   function removeFromItinerary(place: SavedItineraryPlace) {
-    persistItinerary(removeItineraryPlace(savedItinerary, place), `已從行程移除「${place.name}」。`);
+    persistItinerary(
+      removeItineraryPlace(savedItinerary, place),
+      `已從行程移除「${place.name}」。`,
+    );
   }
 
   function toggleFilterPopover() {
@@ -996,6 +1008,14 @@ export function PublicMapPage() {
         <p className="public-map-results__summary" role="status">
           {restaurants.length} 間 BiteMap 店家 · {tourismPlaces.length} 筆觀光資料
         </p>
+        <Link className="public-map-travel-entry is-desktop" href="/travel">
+          <IconSparkles aria-hidden="true" />
+          <span>
+            <strong>AI 規劃全台旅遊</strong>
+            <small>依位置與偏好安排一段旅程</small>
+          </span>
+          <IconArrowRight aria-hidden="true" />
+        </Link>
         <div className="public-map-results__list">
           {restaurants.map((restaurant) => (
             <button
@@ -1086,6 +1106,11 @@ export function PublicMapPage() {
           />
         ) : null}
         <MapActiveFilterChips filters={activeFilters} cuisines={cuisines} onRemove={removeFilter} />
+        <Link className="public-map-travel-entry is-mobile" href="/travel">
+          <IconSparkles aria-hidden="true" />
+          <span>AI 規劃全台旅遊</span>
+          <IconArrowRight aria-hidden="true" />
+        </Link>
       </div>
 
       <div className="public-map-itinerary-entry">
@@ -1130,7 +1155,10 @@ export function PublicMapPage() {
       {selectedRestaurant ? (
         <RestaurantPreviewCard
           restaurant={selectedRestaurant}
-          isInItinerary={isPlaceInItinerary(savedItinerary, toRestaurantItineraryPlace(selectedRestaurant))}
+          isInItinerary={isPlaceInItinerary(
+            savedItinerary,
+            toRestaurantItineraryPlace(selectedRestaurant),
+          )}
           onAddToItinerary={() => addRestaurantToItinerary(selectedRestaurant)}
           onClose={() => setSelectedRestaurant(null)}
         />
@@ -1138,7 +1166,10 @@ export function PublicMapPage() {
       {selectedTourismPlace ? (
         <TourismPreviewCard
           place={selectedTourismPlace}
-          isInItinerary={isPlaceInItinerary(savedItinerary, toTourismItineraryPlace(selectedTourismPlace))}
+          isInItinerary={isPlaceInItinerary(
+            savedItinerary,
+            toTourismItineraryPlace(selectedTourismPlace),
+          )}
           onAddToItinerary={() => addTourismPlaceToItinerary(selectedTourismPlace)}
           onClose={() => setSelectedTourismPlace(null)}
         />

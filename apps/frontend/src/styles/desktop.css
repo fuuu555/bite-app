@@ -248,6 +248,14 @@
     font-size: 0.78rem;
   }
 
+  .public-map-travel-entry.is-desktop {
+    display: flex;
+  }
+
+  .public-map-travel-entry.is-mobile {
+    display: none;
+  }
+
   .public-map-results__list {
     min-height: 0;
     flex: 1;
