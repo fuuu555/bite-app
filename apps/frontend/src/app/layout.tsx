@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
+import "../styles/desktop.css";
 
 // Root metadata and typography are shared by every route.
 // 根層 metadata 與字體設定會套用到所有 route。

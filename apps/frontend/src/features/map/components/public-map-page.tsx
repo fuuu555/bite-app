@@ -1,6 +1,11 @@
 "use client";
 
-import { IconCurrentLocation, IconRefresh } from "@tabler/icons-react";
+import {
+  IconCurrentLocation,
+  IconMapPin,
+  IconRefresh,
+  IconToolsKitchen3,
+} from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   GeoJSONSource,
@@ -323,15 +328,7 @@ function addRestaurantSourceAndLayers(map: MapLibreMap) {
     source: restaurantSourceId,
     filter: ["has", "point_count"],
     paint: {
-      "circle-color": [
-        "step",
-        ["get", "point_count"],
-        "#4e8f6b",
-        10,
-        "#3d7c61",
-        50,
-        "#2d624e",
-      ],
+      "circle-color": ["step", ["get", "point_count"], "#4e8f6b", 10, "#3d7c61", 50, "#2d624e"],
       "circle-radius": ["step", ["get", "point_count"], 20, 10, 24, 50, 29],
       "circle-stroke-color": "#ffffff",
       "circle-stroke-width": 2,
@@ -800,10 +797,7 @@ export function PublicMapPage() {
     const map = mapRef.current;
     const source = map ? tourismSourceFromMap(map) : undefined;
     if (!map || !source || mapStatus !== "ready") return;
-    void ensureCuisineIcons(
-      map,
-      tourismPlaces.map(tourismIconKey),
-    ).then(() => {
+    void ensureCuisineIcons(map, tourismPlaces.map(tourismIconKey)).then(() => {
       if (mapRef.current !== map) return;
       source.setData(tourismFeatureCollection(tourismPlaces));
     });
@@ -874,11 +868,27 @@ export function PublicMapPage() {
     setSelectedRestaurant(restaurant);
     setMessageTone("neutral");
     setMessage("已標示搜尋店家，正在載入周邊店家。");
-    map.easeTo({
-      center: [restaurant.longitude, restaurant.latitude],
-      zoom: Math.max(map.getZoom(), 16),
-      duration: 500,
-    });
+    if (!map.getBounds().contains([restaurant.longitude, restaurant.latitude])) {
+      map.easeTo({
+        center: [restaurant.longitude, restaurant.latitude],
+        zoom: Math.max(map.getZoom(), 16),
+        duration: 500,
+      });
+    }
+  }
+
+  function handleTourismPlaceSelect(place: TourismPlace) {
+    const map = mapRef.current;
+    if (!map) return;
+    setSelectedRestaurant(null);
+    setSelectedTourismPlace(place);
+    if (!map.getBounds().contains([place.longitude, place.latitude])) {
+      map.easeTo({
+        center: [place.longitude, place.latitude],
+        zoom: Math.max(map.getZoom(), 16),
+        duration: 500,
+      });
+    }
   }
 
   function toggleFilterPopover() {
@@ -904,13 +914,7 @@ export function PublicMapPage() {
   }
 
   function removeFilter(
-    key:
-      | "city"
-      | "district"
-      | "priceRange"
-      | "cuisine"
-      | "biteMapSource"
-      | "tourismSource",
+    key: "city" | "district" | "priceRange" | "cuisine" | "biteMapSource" | "tourismSource",
     value?: string,
   ) {
     const nextFilters = cloneMapFilters(activeFilters);
@@ -937,6 +941,73 @@ export function PublicMapPage() {
 
   return (
     <main className="public-map-page" aria-label="附近店家地圖">
+      <aside className="public-map-results" aria-label="目前範圍的店家清單">
+        <header className="public-map-results__header">
+          <div>
+            <span>目前地圖範圍</span>
+            <h1>附近店家</h1>
+          </div>
+          <span className="public-map-results__count" aria-live="polite">
+            {restaurants.length + tourismPlaces.length}
+          </span>
+        </header>
+        <p className="public-map-results__summary" role="status">
+          {restaurants.length} 間 BiteMap 店家 · {tourismPlaces.length} 筆觀光資料
+        </p>
+        <div className="public-map-results__list">
+          {restaurants.map((restaurant) => (
+            <button
+              key={`restaurant-${restaurant.id}`}
+              type="button"
+              className={`public-map-result${selectedRestaurant?.id === restaurant.id ? " is-selected" : ""}`}
+              aria-pressed={selectedRestaurant?.id === restaurant.id}
+              onClick={() => handleRestaurantSelect(restaurant)}
+            >
+              <span
+                className="public-map-result__icon"
+                style={{ backgroundColor: restaurant.primary_cuisine.color }}
+                aria-hidden="true"
+              >
+                <IconToolsKitchen3 />
+              </span>
+              <span className="public-map-result__copy">
+                <strong>{restaurant.name}</strong>
+                <small>{restaurant.primary_cuisine.display_name}</small>
+              </span>
+              <span className="public-map-result__source">BiteMap</span>
+            </button>
+          ))}
+          {tourismPlaces.map((place) => (
+            <button
+              key={`tourism-${place.id}`}
+              type="button"
+              className={`public-map-result${selectedTourismPlace?.id === place.id ? " is-selected" : ""}`}
+              aria-pressed={selectedTourismPlace?.id === place.id}
+              onClick={() => handleTourismPlaceSelect(place)}
+            >
+              <span
+                className="public-map-result__icon is-tourism"
+                style={{ backgroundColor: place.icon_color }}
+                aria-hidden="true"
+              >
+                <IconMapPin />
+              </span>
+              <span className="public-map-result__copy">
+                <strong>{place.name}</strong>
+                <small>{place.address || "觀光署資料"}</small>
+              </span>
+              <span className="public-map-result__source is-official">觀光署</span>
+            </button>
+          ))}
+          {mapStatus === "ready" && restaurants.length + tourismPlaces.length === 0 ? (
+            <div className="public-map-results__empty">
+              <IconMapPin aria-hidden="true" />
+              <strong>這個範圍還沒有店家</strong>
+              <span>移動地圖，探索其他地區。</span>
+            </div>
+          ) : null}
+        </div>
+      </aside>
       <div ref={containerRef} className="public-map-canvas" aria-label="公開店家地圖" />
 
       <div className="public-map-top-controls">

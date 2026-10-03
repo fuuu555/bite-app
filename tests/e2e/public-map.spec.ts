@@ -52,6 +52,12 @@ test("public map auto-refreshes after moving and opens a restaurant preview", as
       }),
     });
   });
+  await page.route("**/api/v1/tourism/places?*", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ places: [], has_more: false }),
+    });
+  });
   await page.route(`**/api/v1/explore/restaurants/${restaurantId}`, async (route) => {
     await route.fulfill({
       contentType: "application/json",
@@ -64,35 +70,54 @@ test("public map auto-refreshes after moving and opens a restaurant preview", as
   await expect(map).toBeVisible();
   await expect(page.locator(".public-map-brand")).toHaveCount(0);
   await expect(page.getByText(/定位未開啟/)).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole("button", { name: /公開地圖驗收店家/ })).toBeVisible({
-    timeout: 15_000,
-  });
+  const restaurantResult = page
+    .locator(".public-map-result")
+    .filter({ hasText: "公開地圖驗收店家" });
+  const isDesktop = (page.viewportSize()?.width ?? 0) >= 1024;
+  if (isDesktop) {
+    await expect(restaurantResult).toBeVisible({ timeout: 15_000 });
+  } else {
+    await expect(page.locator(".public-map-results")).toHaveCSS("display", "none");
+    await expect(page.getByText(/找到 1 間 BiteMap 店家/)).toBeVisible({ timeout: 15_000 });
+  }
 
-  const mapBox = await map.boundingBox();
-  if (!mapBox) throw new Error("public map has no bounding box");
-  await page.mouse.move(mapBox.x + mapBox.width * 0.65, mapBox.y + mapBox.height * 0.45);
-  await page.mouse.down();
-  await page.mouse.move(mapBox.x + mapBox.width * 0.45, mapBox.y + mapBox.height * 0.45, {
-    steps: 5,
-  });
-  await page.mouse.up();
+  if (isDesktop) {
+    await restaurantResult.click();
+    await expect(page.getByRole("heading", { name: "公開地圖驗收店家" })).toBeVisible();
+    await expect(page.locator(".restaurant-preview").getByText("台灣料理")).toBeVisible();
+    await expect(page.getByRole("button", { name: "搜尋此區域" })).toHaveCount(0);
 
-  await expect.poll(() => mapRequestCount).toBeGreaterThanOrEqual(2);
-  await expect(page.getByRole("button", { name: "搜尋此區域" })).toHaveCount(0);
+    await page.getByRole("link", { name: "查看餐廳" }).click();
+    await expect(page).toHaveURL(/\/restaurants\/71c352a3-6609-4dc7-9f76-8eb284a874b8$/);
+    await expect(page.getByRole("heading", { name: "公開地圖驗收店家" })).toBeVisible();
+    await page.getByRole("link", { name: "回到地圖" }).click();
+    await expect(page).toHaveURL(/\/map$/);
 
-  await page.getByRole("button", { name: /公開地圖驗收店家/ }).click();
-  await expect(page.getByRole("heading", { name: "公開地圖驗收店家" })).toBeVisible();
-  await expect(page.getByText("台灣料理")).toBeVisible();
-  await expect(page.getByRole("button", { name: "搜尋此區域" })).toHaveCount(0);
+    const mapBox = await map.boundingBox();
+    if (!mapBox) throw new Error("public map has no bounding box");
+    const requestsBeforeDrag = mapRequestCount;
+    await page.mouse.move(mapBox.x + mapBox.width * 0.65, mapBox.y + mapBox.height * 0.45);
+    await page.mouse.down();
+    await page.mouse.move(mapBox.x + mapBox.width * 0.45, mapBox.y + mapBox.height * 0.45, {
+      steps: 5,
+    });
+    await page.mouse.up();
 
-  await page.getByRole("link", { name: "查看餐廳" }).click();
-  await expect(page).toHaveURL(/\/restaurants\/71c352a3-6609-4dc7-9f76-8eb284a874b8$/);
-  await expect(page.getByRole("heading", { name: "公開地圖驗收店家" })).toBeVisible();
-  await page.getByRole("link", { name: "回到地圖" }).click();
-  await expect(page).toHaveURL(/\/map$/);
+    await expect.poll(() => mapRequestCount).toBeGreaterThan(requestsBeforeDrag);
+    await expect(page.getByRole("button", { name: "搜尋此區域" })).toHaveCount(0);
+  }
 
   await page.getByRole("link", { name: "約飯" }).click();
-  await expect(page.getByRole("heading", { name: "約飯功能準備中" })).toBeVisible();
+  await expect(page.locator(".meals-page__header")).toBeVisible();
+
+  const originalViewport = page.viewportSize();
+  if (!originalViewport) throw new Error("browser viewport is unavailable");
+  await page.setViewportSize({ width: 1023, height: originalViewport.height });
+  await page.goto("/map");
+  await expect(page.locator(".public-map-results")).toHaveCSS("display", "none");
+  await page.setViewportSize({ width: 1024, height: originalViewport.height });
+  await page.goto("/map");
+  await expect(page.locator(".public-map-results")).toHaveCSS("display", "flex");
 });
 
 test("public map keeps its existing results after an API failure", async ({ page }) => {

@@ -68,12 +68,15 @@ test("explore skeleton shares results with the restaurant detail route", async (
     "src",
     restaurant.photo_url,
   );
-  await expect(page.getByLabel("距離")).toBeEnabled();
-  await expect(page.getByLabel("距離")).toHaveValue("");
+  const distanceFilter = page.getByRole("combobox", { name: "距離", exact: true });
+  await expect(distanceFilter).toBeEnabled();
+  await expect(distanceFilter).toHaveValue("");
 
-  await page.getByLabel("距離").selectOption("5");
-  await page.getByLabel("價格").selectOption("200_to_400");
-  await page.getByLabel("料理分類").selectOption(restaurant.primary_cuisine.id);
+  await distanceFilter.selectOption("5");
+  await page.getByRole("combobox", { name: "價格", exact: true }).selectOption("200_to_400");
+  await page
+    .getByRole("combobox", { name: "料理分類", exact: true })
+    .selectOption(restaurant.primary_cuisine.id);
   await page.getByLabel("餐廳名稱").fill("骨架");
   await page.getByRole("button", { name: "開始探索" }).click();
   await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("骨架");
@@ -94,9 +97,11 @@ test("explore skeleton shares results with the restaurant detail route", async (
   );
   await page.goBack();
   await expect(page.getByLabel("餐廳名稱")).toHaveValue("骨架");
-  await expect(page.getByLabel("價格")).toHaveValue("200_to_400");
-  await expect(page.getByLabel("料理分類")).toHaveValue(restaurant.primary_cuisine.id);
-  await expect(page.getByLabel("距離")).toHaveValue("5");
+  await expect(page.getByRole("combobox", { name: "價格", exact: true })).toHaveValue("200_to_400");
+  await expect(page.getByRole("combobox", { name: "料理分類", exact: true })).toHaveValue(
+    restaurant.primary_cuisine.id,
+  );
+  await expect(distanceFilter).toHaveValue("5");
   await page.getByRole("link", { name: "查看餐廳" }).first().click();
   await expect(page.getByRole("heading", { name: "快速資訊" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Google 資料" })).toBeVisible();
@@ -105,6 +110,6 @@ test("explore skeleton shares results with the restaurant detail route", async (
   await expect(page.getByRole("heading", { name: "App 資料" })).toHaveCount(0);
   await expect(page.getByText("評論可信度")).toHaveCount(0);
   await expect(page.getByText("Google 評分")).toBeVisible();
-  await expect(page.getByText("尚未接入").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "收藏" })).toBeDisabled();
+  await expect(page.getByText("暫無資料").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "收藏" })).toBeEnabled();
 });
