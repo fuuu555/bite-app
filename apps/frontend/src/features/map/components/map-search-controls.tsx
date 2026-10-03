@@ -15,7 +15,7 @@ import {
   type MapSearchResponse,
 } from "@/features/map/api/public-map-api";
 
-const taiwanAdministrativeAreas: Record<string, readonly string[]> = {
+export const taiwanAdministrativeAreas: Record<string, readonly string[]> = {
   臺北市: [
     "松山區",
     "信義區",
@@ -396,7 +396,7 @@ const taiwanAdministrativeAreas: Record<string, readonly string[]> = {
   連江縣: ["南竿鄉", "北竿鄉", "莒光鄉", "東引鄉"],
 };
 
-const citySuggestions = Object.keys(taiwanAdministrativeAreas);
+export const citySuggestions = Object.keys(taiwanAdministrativeAreas);
 
 type MapSearchBarProps = {
   query: string;
@@ -623,6 +623,31 @@ export function MapFilterPopover({
         </fieldset>
 
         <fieldset>
+          <legend>資料來源</legend>
+          <div className="map-filter-options">
+            <label>
+              <input
+                type="checkbox"
+                checked={filters.showBiteMapRestaurants}
+                onChange={(event) => update({ showBiteMapRestaurants: event.target.checked })}
+              />
+              <span>顯示 BiteMap 店家</span>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={filters.showTourismData}
+                onChange={(event) => update({ showTourismData: event.target.checked })}
+              />
+              <span>顯示觀光署資料</span>
+            </label>
+          </div>
+          <p className="map-filter-hint">
+            兩種資料來源可分別顯示或隱藏。
+          </p>
+        </fieldset>
+
+        <fieldset>
           <legend>料理分類</legend>
           {isLoadingCuisines ? <p className="map-filter-hint">正在載入料理分類…</p> : null}
           {!isLoadingCuisines && !cuisines.length ? (
@@ -661,11 +686,14 @@ export function MapFilterPopover({
 type MapActiveFilterChipsProps = {
   filters: MapFilters;
   cuisines: MapCuisine[];
-  onRemove: (key: "city" | "district" | "priceRange" | "cuisine", value?: string) => void;
+  onRemove: (
+    key: "city" | "district" | "priceRange" | "cuisine" | "biteMapSource" | "tourismSource",
+    value?: string,
+  ) => void;
 };
 
 type FilterChip = {
-  key: "city" | "district" | "priceRange" | "cuisine";
+  key: "city" | "district" | "priceRange" | "cuisine" | "biteMapSource" | "tourismSource";
   label: string;
   value?: string;
 };
@@ -685,6 +713,12 @@ export function MapActiveFilterChips({ filters, cuisines, onRemove }: MapActiveF
     const cuisine = cuisines.find((item) => item.id === value);
     chips.push({ key: "cuisine", label: cuisine?.display_name ?? "料理分類", value });
   });
+  if (!filters.showBiteMapRestaurants) {
+    chips.push({ key: "biteMapSource", label: "隱藏 BiteMap 店家" });
+  }
+  if (!filters.showTourismData) {
+    chips.push({ key: "tourismSource", label: "隱藏觀光署資料" });
+  }
 
   if (!chips.length) return null;
 
@@ -716,7 +750,12 @@ export function cloneMapFilters(filters: MapFilters): MapFilters {
 
 export function hasMapFilters(filters: MapFilters): boolean {
   return Boolean(
-    filters.city || filters.district || filters.cuisineIds.length || filters.priceRanges.length,
+    filters.city ||
+      filters.district ||
+      filters.cuisineIds.length ||
+      filters.priceRanges.length ||
+      !filters.showBiteMapRestaurants ||
+      !filters.showTourismData,
   );
 }
 
@@ -725,6 +764,8 @@ export function countMapFilters(filters: MapFilters): number {
     Number(Boolean(filters.city)) +
     Number(Boolean(filters.district)) +
     filters.cuisineIds.length +
-    filters.priceRanges.length
+    filters.priceRanges.length +
+    Number(!filters.showBiteMapRestaurants) +
+    Number(!filters.showTourismData)
   );
 }

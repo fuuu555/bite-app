@@ -36,11 +36,41 @@ export type MapSearchResponse = {
   restaurants: MapRestaurant[];
 };
 
+export type TourismPlaceCategory = "restaurant" | "attraction" | "hotel" | "service_site";
+export type TourismSourceDataset = "food" | "attraction" | "hotel" | "service_site";
+
+export type TourismPlace = {
+  id: string;
+  source_dataset: TourismSourceDataset;
+  source_record_id: string;
+  category: TourismPlaceCategory;
+  name: string;
+  description: string | null;
+  address: string | null;
+  phone: string | null;
+  latitude: number;
+  longitude: number;
+  official_url: string | null;
+  opening_hours: string | null;
+  source_updated_at: string | null;
+  tags: string[];
+  icon_key: string | null;
+  icon_classification_slug: string | null;
+  icon_color: string;
+};
+
+export type TourismPlacesResponse = {
+  places: TourismPlace[];
+  has_more: boolean;
+};
+
 export type MapFilters = {
   city: string;
   district: string;
   cuisineIds: string[];
   priceRanges: PriceRange[];
+  showBiteMapRestaurants: boolean;
+  showTourismData: boolean;
 };
 
 export const defaultMapFilters: MapFilters = {
@@ -48,6 +78,8 @@ export const defaultMapFilters: MapFilters = {
   district: "",
   cuisineIds: [],
   priceRanges: [],
+  showBiteMapRestaurants: true,
+  showTourismData: true,
 };
 
 export class PublicMapApiError extends Error {
@@ -104,6 +136,22 @@ export async function fetchPublicMapCuisines(signal?: AbortSignal): Promise<MapC
   const response = await fetch("/api/v1/map/cuisines", { signal });
   if (!response.ok) throw new PublicMapApiError(response.status);
   return (await response.json()) as MapCuisine[];
+}
+
+export async function fetchPublicTourismPlaces(
+  bounds: MapBounds,
+  signal?: AbortSignal,
+): Promise<TourismPlacesResponse> {
+  const params = new URLSearchParams({
+    west: String(bounds.west),
+    south: String(bounds.south),
+    east: String(bounds.east),
+    north: String(bounds.north),
+    limit: "250",
+  });
+  const response = await fetch(`/api/v1/tourism/places?${params}`, { signal });
+  if (!response.ok) throw new PublicMapApiError(response.status);
+  return (await response.json()) as TourismPlacesResponse;
 }
 
 export const priceRangeLabels: Record<PriceRange, string> = {

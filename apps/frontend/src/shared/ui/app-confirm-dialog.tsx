@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import type { ReactNode } from "react";
 
 type AppConfirmDialogProps = {
   open: boolean;
   title: string;
-  message: string;
+  message: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
@@ -44,7 +45,7 @@ export function AppConfirmDialog({
         aria-labelledby="app-confirm-dialog-title"
       >
         <h2 id="app-confirm-dialog-title">{title}</h2>
-        <p>{message}</p>
+        <div className="app-confirm-dialog__message">{message}</div>
         <div className="app-confirm-dialog__actions">
           <button type="button" className="button button--ghost" onClick={onCancel} autoFocus>
             {cancelLabel}

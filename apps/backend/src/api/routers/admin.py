@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Cookie,
     Depends,
     File,
@@ -36,6 +37,7 @@ from api.domain.models import (
     Restaurant,
     RestaurantMenu,
     RestaurantPhoto,
+    TourismImportRun,
     User,
 )
 from api.domain.schemas import (
@@ -59,6 +61,17 @@ from api.domain.schemas import (
     RestaurantResponse,
     RestaurantUpdate,
     ReverseGeocodeRequest,
+    TourismAdminPlacesResponse,
+    TourismDuplicatePairsResponse,
+    TourismImportRunResponse,
+    TourismImportStartResponse,
+    TourismPlaceConvertRequest,
+    TourismPlaceDeleteResponse,
+    TourismPlacesDeleteRequest,
+    TourismPlacesDeleteResponse,
+    TourismPlacesEnableResponse,
+    TourismPlaceUpdate,
+    TourismSourceDataset,
 )
 from api.integrations.geocoding import GeocodingProvider, get_geocoding_provider
 from api.services.admin import (
@@ -84,6 +97,19 @@ from api.services.restaurant_content import (
     list_photos,
     update_menu,
     update_photo,
+)
+from api.services.tourism_data import (
+    DATASET_CONFIGS,
+    SYSTEM_TOURISM_CLASSIFICATION_SLUGS,
+    delete_tourism_place,
+    delete_tourism_places,
+    enable_all_tourism_places,
+    get_tourism_place,
+    import_all_tourism_datasets,
+    list_admin_tourism_places,
+    list_tourism_duplicate_pairs,
+    tourism_import_in_progress,
+    update_tourism_place,
 )
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
@@ -194,6 +220,8 @@ async def create_cuisine(
     _: AdminDep,
     session: SessionDep,
 ) -> Cuisine:
+    if payload.slug in SYSTEM_TOURISM_CLASSIFICATION_SLUGS:
+        raise HTTPException(status_code=409, detail="cuisine slug is managed by the system")
     cuisine = Cuisine(**payload.model_dump())
     session.add(cuisine)
     try:
@@ -202,6 +230,7 @@ async def create_cuisine(
         await session.rollback()
         raise HTTPException(status_code=409, detail="cuisine slug already exists") from error
     await session.refresh(cuisine)
+    clear_map_query_cache()
     return cuisine
 
 
@@ -215,10 +244,16 @@ async def update_cuisine(
     cuisine = await session.get(Cuisine, cuisine_id)
     if cuisine is None:
         raise HTTPException(status_code=404, detail="cuisine not found")
+    if cuisine.slug in SYSTEM_TOURISM_CLASSIFICATION_SLUGS:
+        raise HTTPException(
+            status_code=409,
+            detail="tourism classification is managed by the system",
+        )
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(cuisine, field, value)
     await session.commit()
     await session.refresh(cuisine)
+    clear_map_query_cache()
     return cuisine
 
 
@@ -228,11 +263,20 @@ async def delete_cuisine(
     _: AdminDep,
     session: SessionDep,
 ) -> None:
+    cuisine = await session.get(Cuisine, cuisine_id)
+    if cuisine is None:
+        raise HTTPException(status_code=404, detail="cuisine not found")
+    if cuisine.slug in SYSTEM_TOURISM_CLASSIFICATION_SLUGS:
+        raise HTTPException(
+            status_code=409,
+            detail="tourism classification is managed by the system",
+        )
     try:
         result = await session.execute(delete(Cuisine).where(Cuisine.id == cuisine_id))
         if result.rowcount == 0:  # type: ignore[attr-defined]
             raise HTTPException(status_code=404, detail="cuisine not found")
         await session.commit()
+        clear_map_query_cache()
     except IntegrityError as error:
         await session.rollback()
         raise HTTPException(status_code=409, detail="cuisine is used by a restaurant") from error
@@ -260,6 +304,215 @@ async def read_map_monitoring(_: AdminDep, session: SessionDep) -> MapPerformanc
             cache_entries=map_query_cache.size,
         )
     )
+
+
+@router.post(
+    "/tourism/import",
+    response_model=TourismImportStartResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_tourism_import(
+    _: AdminDep,
+    background_tasks: BackgroundTasks,
+) -> TourismImportStartResponse:
+    """Start importing all official tourism datasets in the background."""
+    datasets = list(DATASET_CONFIGS.keys())
+    if tourism_import_in_progress():
+        return TourismImportStartResponse(status="already_running", datasets=datasets)
+    clear_map_query_cache()
+    background_tasks.add_task(_import_tourism_and_clear_map_cache)
+    return TourismImportStartResponse(status="started", datasets=datasets)
+
+
+async def _import_tourism_and_clear_map_cache() -> None:
+    try:
+        await import_all_tourism_datasets()
+    finally:
+        clear_map_query_cache()
+
+
+@router.get("/tourism/import-runs", response_model=list[TourismImportRunResponse])
+async def list_tourism_import_runs(
+    _: AdminDep,
+    session: SessionDep,
+    limit: int = 20,
+) -> list[TourismImportRunResponse]:
+    """List recent official tourism import reports."""
+    bounded_limit = max(1, min(limit, 100))
+    result = await session.execute(
+        select(TourismImportRun)
+        .order_by(TourismImportRun.started_at.desc(), TourismImportRun.id.desc())
+        .limit(bounded_limit)
+    )
+    return [
+        TourismImportRunResponse.model_validate(item, from_attributes=True)
+        for item in result.scalars()
+    ]
+
+
+@router.get("/tourism/places", response_model=TourismAdminPlacesResponse)
+async def list_admin_tourism_places_endpoint(
+    _: AdminDep,
+    session: SessionDep,
+    offset: int = 0,
+    limit: int = 100,
+    dataset: TourismSourceDataset | None = None,
+    query: str | None = None,
+    city: str | None = None,
+    district: str | None = None,
+) -> TourismAdminPlacesResponse:
+    bounded_offset = max(0, offset)
+    bounded_limit = max(1, min(limit, 250))
+    places, total = await list_admin_tourism_places(
+        session,
+        offset=bounded_offset,
+        limit=bounded_limit,
+        dataset=dataset,
+        query=query,
+        city=city,
+        district=district,
+    )
+    return TourismAdminPlacesResponse(
+        places=places,
+        total=total,
+        has_more=bounded_offset + len(places) < total,
+    )
+
+
+@router.get("/tourism/places/duplicates", response_model=TourismDuplicatePairsResponse)
+async def list_admin_tourism_duplicates(
+    _: AdminDep,
+    session: SessionDep,
+    offset: int = 0,
+    limit: int = 50,
+    dataset: TourismSourceDataset | None = None,
+    query: str | None = None,
+    city: str | None = None,
+    district: str | None = None,
+) -> TourismDuplicatePairsResponse:
+    return await list_tourism_duplicate_pairs(
+        session,
+        offset=max(0, offset),
+        limit=max(1, min(limit, 100)),
+        dataset=dataset,
+        query=query,
+        city=city,
+        district=district,
+    )
+
+
+@router.delete("/tourism/places/{place_id}", response_model=TourismPlaceDeleteResponse)
+async def delete_admin_tourism_place(
+    place_id: uuid.UUID,
+    _: AdminDep,
+    session: SessionDep,
+) -> TourismPlaceDeleteResponse:
+    try:
+        await delete_tourism_place(session, place_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    clear_map_query_cache()
+    return TourismPlaceDeleteResponse(deleted=True)
+
+
+@router.post("/tourism/places/delete-batch", response_model=TourismPlacesDeleteResponse)
+async def delete_admin_tourism_places(
+    payload: TourismPlacesDeleteRequest,
+    _: AdminDep,
+    session: SessionDep,
+) -> TourismPlacesDeleteResponse:
+    try:
+        deleted_ids = await delete_tourism_places(session, payload.place_ids)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    clear_map_query_cache()
+    return TourismPlacesDeleteResponse(
+        deleted_count=len(deleted_ids),
+        deleted_ids=deleted_ids,
+    )
+
+
+@router.post("/tourism/places/enable-all", response_model=TourismPlacesEnableResponse)
+async def enable_all_admin_tourism_places(
+    _: AdminDep,
+    session: SessionDep,
+    dataset: TourismSourceDataset | None = None,
+) -> TourismPlacesEnableResponse:
+    return TourismPlacesEnableResponse(
+        enabled_count=await enable_all_tourism_places(session, dataset=dataset)
+    )
+
+
+@router.patch("/tourism/places/{place_id}")
+async def update_admin_tourism_place(
+    place_id: uuid.UUID,
+    payload: TourismPlaceUpdate,
+    _: AdminDep,
+    session: SessionDep,
+):
+    try:
+        place = await get_tourism_place(session, place_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    try:
+        return await update_tourism_place(session, place, payload)
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.post(
+    "/tourism/places/{place_id}/convert",
+    response_model=RestaurantResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def convert_tourism_place(
+    place_id: uuid.UUID,
+    payload: TourismPlaceConvertRequest,
+    admin: AdminDep,
+    session: SessionDep,
+) -> RestaurantResponse:
+    try:
+        place = await get_tourism_place(session, place_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    if place.category != "restaurant":
+        raise HTTPException(
+            status_code=422,
+            detail="only food tourism places can become restaurants",
+        )
+    if place.linked_restaurant_id is not None:
+        return restaurant_response(await get_restaurant(session, place.linked_restaurant_id))
+
+    name = place.display_name or place.name
+    address = place.display_address or place.address
+    if not address or place.latitude is None or place.longitude is None:
+        raise HTTPException(status_code=422, detail="tourism place needs address and coordinates")
+    duplicate = await session.scalar(
+        select(Restaurant).where(
+            func.lower(func.trim(Restaurant.name)) == name.strip().casefold(),
+            func.lower(func.trim(Restaurant.address)) == address.strip().casefold(),
+        )
+    )
+    if duplicate is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"a BiteMap restaurant already exists: {duplicate.id}",
+        )
+
+    restaurant = await create_restaurant(
+        session,
+        admin,
+        RestaurantCreate(
+            name=name,
+            address=address,
+            google_lookup_enabled=payload.google_lookup_enabled,
+            latitude=place.latitude,
+            longitude=place.longitude,
+        ),
+    )
+    place.linked_restaurant_id = restaurant.id
+    await session.commit()
+    return restaurant_response(await get_restaurant(session, restaurant.id))
 
 
 @router.post("/restaurants", response_model=RestaurantResponse, status_code=status.HTTP_201_CREATED)

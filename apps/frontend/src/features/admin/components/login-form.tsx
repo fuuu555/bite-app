@@ -42,7 +42,7 @@ export function LoginForm() {
         </div>
         <div>
           <h1 id="login-title">管理員登入</h1>
-          <p>管理料理分類、店家座標與發布狀態。</p>
+          <p>管理圖示分類、店家座標與發布狀態。</p>
         </div>
         <form onSubmit={submit} className="login-form">
           <label>

@@ -29,6 +29,30 @@ class AdminUserResponse(BaseModel):
     role: str
 
 
+TourismImportStatus = Literal["running", "succeeded", "failed"]
+
+
+class TourismImportStartResponse(BaseModel):
+    status: Literal["started", "already_running"]
+    datasets: list[TourismSourceDataset]
+
+
+class TourismImportRunResponse(BaseModel):
+    id: uuid.UUID
+    source_dataset: TourismSourceDataset
+    source_url: str
+    status: TourismImportStatus
+    started_at: datetime
+    completed_at: datetime | None
+    downloaded_count: int
+    inserted_count: int
+    updated_count: int
+    unchanged_count: int
+    invalid_count: int
+    deactivated_count: int
+    error_message: str | None
+
+
 class AvatarAssetResponse(BaseModel):
     """Selectable avatar metadata / 可選頭貼中繼資料。"""
 
@@ -414,6 +438,119 @@ class MapSearchResponse(BaseModel):
 
     status: Literal["ok"]
     restaurants: list[MapRestaurantResponse]
+
+
+TourismPlaceCategory = Literal["restaurant", "attraction", "hotel", "service_site"]
+TourismSourceDataset = Literal["food", "attraction", "hotel", "service_site"]
+
+
+class TourismPlaceResponse(BaseModel):
+    """Public official tourism place payload / 公開官方觀光地點資料。"""
+
+    id: uuid.UUID
+    source_dataset: TourismSourceDataset
+    source_record_id: str
+    category: TourismPlaceCategory
+    name: str
+    description: str | None
+    address: str | None
+    phone: str | None
+    latitude: float
+    longitude: float
+    official_url: str | None
+    opening_hours: str | None
+    source_updated_at: datetime | None
+    tags: list[str]
+    icon_key: str | None
+    icon_classification_slug: str | None
+    icon_color: str
+
+
+class TourismAdminPlaceResponse(TourismPlaceResponse):
+    """Admin view with source values and BiteMap conversion state."""
+
+    official_name: str
+    official_address: str | None
+    official_icon_key: str
+    is_map_enabled: bool
+    linked_restaurant_id: uuid.UUID | None
+
+
+class TourismPlaceUpdate(BaseModel):
+    """Editable text fields for an official tourism place."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=240)
+    address: str | None = Field(default=None, min_length=1, max_length=500)
+
+
+class TourismPlacesEnableResponse(BaseModel):
+    """Bulk map enable result."""
+
+    enabled_count: int
+
+
+class TourismPlaceConvertRequest(BaseModel):
+    """Options used when promoting an official food place to BiteMap."""
+
+    google_lookup_enabled: bool = False
+
+
+class TourismAdminPlacesResponse(BaseModel):
+    """Paged admin tourism place list."""
+
+    places: list[TourismAdminPlaceResponse]
+    total: int
+    has_more: bool
+
+
+class TourismDuplicatePairResponse(BaseModel):
+    """Two official source records that may represent the same place."""
+
+    left: TourismAdminPlaceResponse
+    right: TourismAdminPlaceResponse
+    name_similarity: float
+    match_reasons: list[str]
+
+
+class TourismDuplicatePairsResponse(BaseModel):
+    """Paged candidate pairs for manual duplicate review."""
+
+    pairs: list[TourismDuplicatePairResponse]
+    total: int
+    has_more: bool
+
+
+class TourismPlaceDeleteResponse(BaseModel):
+    """Result of permanently deleting an official source row."""
+
+    deleted: bool
+
+
+class TourismPlacesDeleteRequest(BaseModel):
+    """Source row IDs to permanently delete in one transaction."""
+
+    place_ids: list[uuid.UUID] = Field(min_length=1, max_length=100)
+
+    @field_validator("place_ids")
+    @classmethod
+    def require_unique_place_ids(cls, value: list[uuid.UUID]) -> list[uuid.UUID]:
+        if len(value) != len(set(value)):
+            raise ValueError("place_ids must not contain duplicates")
+        return value
+
+
+class TourismPlacesDeleteResponse(BaseModel):
+    """Result of an atomic permanent deletion of official source rows."""
+
+    deleted_count: int
+    deleted_ids: list[uuid.UUID]
+
+
+class TourismPlacesResponse(BaseModel):
+    """Bounded official tourism map results / 有界官方觀光地圖結果。"""
+
+    places: list[TourismPlaceResponse]
+    has_more: bool
 
 
 ExploreSort = Literal[

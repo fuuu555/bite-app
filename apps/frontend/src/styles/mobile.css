@@ -59,6 +59,89 @@
     font-size: 1.65rem;
   }
 
+  .admin-tourism-import {
+    grid-template-columns: 1fr;
+    padding: 18px;
+  }
+
+  .admin-tourism-import > .button {
+    width: 100%;
+  }
+
+  .admin-tourism-import__runs > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .admin-tourism-import__runs small {
+    text-align: left;
+  }
+
+  .tourism-place-manager {
+    padding: 18px;
+  }
+
+  .tourism-place-manager__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tourism-place-manager__header > .button {
+    width: 100%;
+  }
+
+  .tourism-place-manager__filters {
+    grid-template-columns: 1fr;
+  }
+
+  .tourism-place-manager__filters.is-duplicate {
+    grid-template-columns: 1fr;
+  }
+
+  .tourism-place-manager__views > .button {
+    flex: 1 1 auto;
+  }
+
+  .tourism-place-manager__duplicate > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .tourism-place-manager__duplicate-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .tourism-place-manager__duplicate-pair > article .button {
+    justify-self: stretch;
+  }
+
+  .tourism-place-manager__filters > .button {
+    width: 100%;
+  }
+
+  .tourism-place-manager__item,
+  .tourism-place-manager__item.is-editing {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .tourism-place-manager__item .table-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .tourism-place-manager__address-fields {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .tourism-place-manager__address-fields input {
+    grid-column: 1 / -1;
+  }
+
   .monitoring-summary {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -139,6 +222,26 @@
   .settings-form,
   .cuisine-list {
     padding: 20px;
+  }
+
+  .cuisine-icon-picker,
+  .place-icon-picker {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .cuisine-icon-picker button,
+  .place-icon-picker button {
+    min-height: 62px;
+    padding-inline: 3px;
+  }
+
+  .cuisine-icon-picker button span,
+  .place-icon-picker button span {
+    overflow: hidden;
+    max-width: 100%;
+    font-size: 0.65rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .editor-content-manager {
@@ -757,8 +860,17 @@
     width: auto;
   }
 
+  .tourism-preview {
+    right: 10px;
+    bottom: 14px;
+    left: 10px;
+    width: auto;
+  }
+
   .public-map-page:has(.restaurant-preview) .map-location-control,
-  .public-map-page:has(.restaurant-preview) .public-map-message {
+  .public-map-page:has(.tourism-preview) .map-location-control,
+  .public-map-page:has(.restaurant-preview) .public-map-message,
+  .public-map-page:has(.tourism-preview) .public-map-message {
     display: none;
   }
 

@@ -21,6 +21,7 @@ from api.routers.meals import router as meals_router
 from api.routers.public_map import router as public_map_router
 from api.routers.reviews import router as reviews_router
 from api.routers.social import router as social_router
+from api.routers.tourism import router as tourism_router
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -54,6 +55,7 @@ app.include_router(reviews_router)
 app.include_router(meals_router)
 app.include_router(chat_router)
 app.include_router(social_router)
+app.include_router(tourism_router)
 
 
 @app.get("/health/live", tags=["health"])

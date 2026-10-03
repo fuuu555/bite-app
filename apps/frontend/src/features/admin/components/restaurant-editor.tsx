@@ -63,7 +63,9 @@ export function RestaurantEditor({ restaurantId }: { restaurantId?: string }) {
 
   useEffect(() => {
     adminApi<Cuisine[]>("/cuisines").then((items) =>
-      setCuisines(items.filter((item) => item.is_active)),
+      setCuisines(
+        items.filter((item) => item.is_active && !item.slug.startsWith("tourism-")),
+      ),
     );
     if (!restaurantId) return;
     adminApi<Restaurant>(`/restaurants/${restaurantId}`)

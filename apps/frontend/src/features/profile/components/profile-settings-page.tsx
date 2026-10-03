@@ -1,6 +1,6 @@
 "use client";
 
-import { IconArrowLeft, IconCheck, IconDeviceDesktop, IconPlus, IconX } from "@tabler/icons-react";
+import { IconArrowLeft, IconCheck, IconPlus, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
@@ -10,7 +10,6 @@ import {
   MyProfile,
   UserApiError,
   fetchAvatarAssets,
-  UserSession,
   suggestedProfileTags,
   userApi,
 } from "@/shared/auth/user-api";
@@ -18,7 +17,6 @@ import {
 export function ProfileSettingsPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<MyProfile | null>(null);
-  const [sessions, setSessions] = useState<UserSession[]>([]);
   const [displayName, setDisplayName] = useState("");
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
@@ -47,10 +45,9 @@ export function ProfileSettingsPage() {
   useEffect(() => {
     Promise.all([
       userApi<MyProfile>("/me/profile"),
-      userApi<UserSession[]>("/me/sessions"),
       fetchAvatarAssets(),
     ])
-      .then(([loadedProfile, loadedSessions, loadedAvatarAssets]) => {
+      .then(([loadedProfile, loadedAvatarAssets]) => {
         setProfile(loadedProfile);
         setDisplayName(loadedProfile.display_name);
         setBio(loadedProfile.bio ?? "");
@@ -60,7 +57,6 @@ export function ProfileSettingsPage() {
         setAvatarAssetId(loadedProfile.avatar_asset_id);
         setAvatarAssets(loadedAvatarAssets);
         setTags(loadedProfile.tags.map((tag) => tag.display_name));
-        setSessions(loadedSessions);
       })
       .catch((caught) => {
         if (caught instanceof UserApiError && caught.status === 401) {
@@ -133,11 +129,6 @@ export function ProfileSettingsPage() {
     } finally {
       setSaving(false);
     }
-  }
-
-  async function revokeSession(sessionId: string) {
-    await userApi<void>(`/me/sessions/${sessionId}`, { method: "DELETE" });
-    setSessions((current) => current.filter((item) => item.id !== sessionId));
   }
 
   if (error && !profile) {
@@ -228,10 +219,10 @@ export function ProfileSettingsPage() {
                       setAvatarUrl("");
                     }}
                     aria-pressed={avatarAssetId === asset.id}
+                    aria-label={asset.display_name}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={asset.url} alt="" />
-                    <span>{asset.display_name}</span>
                   </button>
                 ))}
               </div>
@@ -353,34 +344,6 @@ export function ProfileSettingsPage() {
           </button>
         </form>
 
-        <aside className="profile-settings-side">
-          <section className="profile-settings-card profile-sessions-card">
-            <div className="profile-settings-card__heading">
-              <div>
-                <h2>登入裝置</h2>
-                <p>可以隨時撤銷其他裝置的 Session。</p>
-              </div>
-              <IconDeviceDesktop aria-hidden="true" />
-            </div>
-            <ul className="profile-session-list">
-              {sessions.map((item) => (
-                <li key={item.id}>
-                  <div>
-                    <strong>{item.current ? "目前裝置" : item.device_label}</strong>
-                    <small>最近使用：{new Date(item.last_seen_at).toLocaleString("zh-TW")}</small>
-                  </div>
-                  {item.current ? (
-                    <span className="profile-session-current">使用中</span>
-                  ) : (
-                    <button type="button" onClick={() => revokeSession(item.id)}>
-                      登出
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        </aside>
       </div>
     </main>
   );

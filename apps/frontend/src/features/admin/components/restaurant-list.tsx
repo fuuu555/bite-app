@@ -95,6 +95,7 @@ export function RestaurantList() {
         </Link>
       </header>
 
+
       {error ? <p className="form-message is-error">{error}</p> : null}
       {loading ? (
         <div className="table-skeleton" aria-label="載入店家" aria-busy="true" />

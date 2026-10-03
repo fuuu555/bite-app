@@ -4,21 +4,13 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { AppConfirmDialog } from "@/shared/ui/app-confirm-dialog";
 import { Cuisine, adminApi } from "@/features/admin/api/admin-api";
+import {
+  CuisineIcon,
+  CuisineIconPicker,
+  cuisineIconOptions,
+} from "@/features/admin/components/cuisine-icon-picker";
 
 const colorOptions = ["#F26B4F", "#E7B75A", "#4E8F6B", "#4277A6", "#A74A5B"];
-const iconOptions = [
-  { value: "burger", label: "漢堡" },
-  { value: "leaf", label: "葉片" },
-  { value: "fish", label: "魚" },
-  { value: "coffee", label: "咖啡" },
-];
-
-const iconGlyphs: Record<string, string> = {
-  burger: "🍔",
-  leaf: "🥬",
-  fish: "🐟",
-  coffee: "☕",
-};
 const CUISINES_PER_PAGE = 8;
 
 const cuisineSlugPresets: Record<string, string> = {
@@ -34,6 +26,13 @@ const cuisineSlugPresets: Record<string, string> = {
   甜點: "desserts",
   飲料: "drinks",
 };
+
+const systemTourismSlugs = new Set([
+  "tourism-food",
+  "tourism-attraction",
+  "tourism-lodging",
+  "tourism-service-site",
+]);
 
 function generateSlug(value: string): string {
   const trimmed = value.trim().toLowerCase();
@@ -60,13 +59,13 @@ export function CuisineManager() {
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [color, setColor] = useState(colorOptions[0]);
-  const [iconKey, setIconKey] = useState(iconOptions[0].value);
+  const [iconKey, setIconKey] = useState<string>(cuisineIconOptions[0].value);
   const [message, setMessage] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDisplayName, setEditingDisplayName] = useState("");
   const [editingColor, setEditingColor] = useState(colorOptions[0]);
-  const [editingIconKey, setEditingIconKey] = useState(iconOptions[0].value);
+  const [editingIconKey, setEditingIconKey] = useState<string>(cuisineIconOptions[0].value);
   const [cuisineToRemove, setCuisineToRemove] = useState<Cuisine | null>(null);
 
   async function load(): Promise<Cuisine[]> {
@@ -75,7 +74,7 @@ export function CuisineManager() {
       setCuisines(data);
       return data;
     } catch {
-      setMessage("無法載入料理分類。");
+      setMessage("無法載入圖示分類。");
       return [];
     }
   }
@@ -87,7 +86,7 @@ export function CuisineManager() {
         if (active) setCuisines(data);
       })
       .catch(() => {
-        if (active) setMessage("無法載入料理分類。");
+        if (active) setMessage("無法載入圖示分類。");
       });
     return () => {
       active = false;
@@ -179,8 +178,8 @@ export function CuisineManager() {
     <main className="admin-page">
       <header className="admin-page__header">
         <div>
-          <h1>料理分類</h1>
-          <p>標記色只區分料理類型，並以圖示與文字提供輔助辨識。</p>
+          <h1>圖示分類</h1>
+          <p>餐飲圖示可自行新增；觀光資料分類由系統依來源自動套用。</p>
         </div>
       </header>
       <div className="cuisine-manager-layout">
@@ -240,32 +239,29 @@ export function CuisineManager() {
                   type="color"
                   value={color}
                   onChange={(event) => setColor(event.target.value.toUpperCase())}
-                  aria-label="自訂料理分類顏色"
+                  aria-label="自訂圖示分類顏色"
                 />
                 <span>{color}</span>
               </label>
             </fieldset>
-            <label>
-              圖示
-              <select value={iconKey} onChange={(event) => setIconKey(event.target.value)}>
-                {iconOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <fieldset className="cuisine-icon-fieldset">
+              <legend>選擇圖示</legend>
+              <CuisineIconPicker value={iconKey} onChange={setIconKey} color={color} />
+            </fieldset>
             <button className="button button--primary" type="submit">
-              新增料理分類
+              新增圖示分類
             </button>
           </div>
           {message ? <p className="form-message is-error">{message}</p> : null}
         </form>
-        <section className="cuisine-list" aria-label="料理分類清單">
+        <section className="cuisine-list" aria-label="圖示分類清單">
           <h2>目前分類</h2>
           <div className="cuisine-list__items">
             {visibleCuisines.map((cuisine) => (
-              <article key={cuisine.id} className={!cuisine.is_active ? "is-disabled" : undefined}>
+              <article
+                key={cuisine.id}
+                className={`${!cuisine.is_active ? "is-disabled " : ""}${systemTourismSlugs.has(cuisine.slug) ? "is-system-managed" : ""}`.trim() || undefined}
+              >
                 {editingId === cuisine.id ? (
                   <div className="cuisine-edit-form">
                     <label>
@@ -282,22 +278,17 @@ export function CuisineManager() {
                         type="color"
                         value={editingColor}
                         onChange={(event) => setEditingColor(event.target.value.toUpperCase())}
-                        aria-label="編輯料理分類顏色"
+                        aria-label="編輯圖示分類顏色"
                       />
                     </label>
-                    <label>
-                      圖示
-                      <select
+                    <fieldset className="cuisine-icon-fieldset">
+                      <legend>選擇圖示</legend>
+                      <CuisineIconPicker
                         value={editingIconKey}
-                        onChange={(event) => setEditingIconKey(event.target.value)}
-                      >
-                        {iconOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                        onChange={setEditingIconKey}
+                        color={editingColor}
+                      />
+                    </fieldset>
                     <div className="cuisine-list__actions">
                       <button
                         type="button"
@@ -317,47 +308,51 @@ export function CuisineManager() {
                   </div>
                 ) : (
                   <>
-                    <span className="cuisine-swatch" style={{ background: cuisine.color }} />
-                    {iconGlyphs[cuisine.icon_key] ? (
-                      <span className="cuisine-icon" aria-label={`${cuisine.display_name}圖示`}>
-                        {iconGlyphs[cuisine.icon_key]}
-                      </span>
-                    ) : null}
+                    <span
+                      className="cuisine-icon icon-color-marker"
+                      style={{ backgroundColor: cuisine.color }}
+                      aria-label={`${cuisine.display_name}圖示與標記顏色`}
+                    >
+                      <CuisineIcon iconKey={cuisine.icon_key} size={23} />
+                    </span>
                     <div className="cuisine-list__identity">
                       <strong>{cuisine.display_name}</strong>
                       <small>{cuisine.slug}</small>
+                      {systemTourismSlugs.has(cuisine.slug) ? <small>系統內建</small> : null}
                     </div>
                     <small className="cuisine-list__icon-name">Icon：{cuisine.icon_key}</small>
-                    <div className="cuisine-list__actions">
-                      <button
-                        type="button"
-                        className="button button--quiet"
-                        onClick={() => startEditing(cuisine)}
-                      >
-                        編輯
-                      </button>
-                      <button
-                        type="button"
-                        className="button button--quiet"
-                        onClick={() => toggle(cuisine)}
-                      >
-                        {cuisine.is_active ? "停用" : "啟用"}
-                      </button>
-                      <button
-                        type="button"
-                        className="button button--danger-quiet"
-                        onClick={() => setCuisineToRemove(cuisine)}
-                      >
-                        刪除
-                      </button>
-                    </div>
+                    {systemTourismSlugs.has(cuisine.slug) ? null : (
+                      <div className="cuisine-list__actions">
+                        <button
+                          type="button"
+                          className="button button--quiet"
+                          onClick={() => startEditing(cuisine)}
+                        >
+                          編輯
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--quiet"
+                          onClick={() => toggle(cuisine)}
+                        >
+                          {cuisine.is_active ? "停用" : "啟用"}
+                        </button>
+                        <button
+                          type="button"
+                          className="button button--danger-quiet"
+                          onClick={() => setCuisineToRemove(cuisine)}
+                        >
+                          刪除
+                        </button>
+                      </div>
+                    )}
                   </>
                 )}
               </article>
             ))}
           </div>
           {pageCount > 1 ? (
-            <nav className="admin-pagination" aria-label="料理分類分頁">
+            <nav className="admin-pagination" aria-label="圖示分類分頁">
               <button
                 type="button"
                 className="button button--quiet"
@@ -383,7 +378,7 @@ export function CuisineManager() {
       </div>
       <AppConfirmDialog
         open={cuisineToRemove !== null}
-        title="刪除料理分類"
+        title="刪除圖示分類"
         message={
           cuisineToRemove ? `確定要刪除「${cuisineToRemove.display_name}」嗎？此操作無法復原。` : ""
         }

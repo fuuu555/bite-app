@@ -20,7 +20,7 @@ def upgrade() -> None:
         USING gin (
             to_tsvector(
                 'simple',
-                concat_ws(' ', coalesce(name, ''), coalesce(address, ''))
+                coalesce(name, '') || ' ' || coalesce(address, '')
             )
         )
         """

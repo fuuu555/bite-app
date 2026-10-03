@@ -18,15 +18,18 @@ import {
   hasMapFilters,
 } from "@/features/map/components/map-search-controls";
 import { RestaurantPreviewCard } from "@/features/map/components/restaurant-preview-card";
+import { TourismPreviewCard } from "@/features/map/components/tourism-preview-card";
 import {
   defaultMapFilters,
   fetchPublicMapCuisines,
   fetchPublicMapSearch,
   fetchPublicMapRestaurants,
+  fetchPublicTourismPlaces,
   type MapBounds,
   type MapCuisine,
   type MapFilters,
   type MapRestaurant,
+  type TourismPlace,
 } from "@/features/map/api/public-map-api";
 
 type SavedViewport = { longitude: number; latitude: number; zoom: number };
@@ -47,6 +50,11 @@ const clusterLayerId = "public-map-clusters";
 const clusterCountLayerId = "public-map-cluster-count";
 const restaurantLayerId = "public-map-restaurants-unclustered";
 const restaurantLabelLayerId = "public-map-restaurant-label";
+const tourismSourceId = "public-map-tourism";
+const tourismClusterLayerId = "public-map-tourism-clusters";
+const tourismClusterCountLayerId = "public-map-tourism-cluster-count";
+const tourismLayerId = "public-map-tourism-unclustered";
+const tourismLabelLayerId = "public-map-tourism-label";
 type RestaurantFeatureCollection = {
   type: "FeatureCollection";
   features: Array<{
@@ -144,8 +152,15 @@ function currentBounds(map: MapLibreMap): MapBounds {
 type RestaurantFeatureProperties = {
   restaurant_id: string;
   cuisine_color: string;
-  cuisine_initial: string;
+  cuisine_icon: string;
   is_selected: boolean;
+};
+
+type TourismFeatureProperties = {
+  tourism_place_id: string;
+  tourism_category: TourismPlace["category"];
+  tourism_icon?: string;
+  tourism_color: string;
 };
 
 function restaurantFeatureCollection(
@@ -163,9 +178,131 @@ function restaurantFeatureCollection(
       properties: {
         restaurant_id: restaurant.id,
         cuisine_color: restaurant.primary_cuisine.color,
-        cuisine_initial: restaurant.primary_cuisine.display_name.slice(0, 1),
+        cuisine_icon: cuisineIconName(restaurant.primary_cuisine.icon_key),
         is_selected: restaurant.id === selectedRestaurantId,
       },
+    })),
+  };
+}
+
+const cuisineIconPrefix = "bitemap-cuisine-";
+const tourismFallbackIconByDataset = {
+  food: { iconKey: "tools-kitchen-3", color: "#F26B4F" },
+  attraction: { iconKey: "map-pin", color: "#657B8C" },
+  hotel: { iconKey: "bed", color: "#8B6BB1" },
+  service_site: { iconKey: "info-circle", color: "#4E8F6B" },
+} as const;
+
+function cuisineIconName(iconKey: string): string {
+  const normalized = iconKey.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+  return `${cuisineIconPrefix}${normalized || "default"}`;
+}
+
+function cuisineIconShape(iconKey: string): string {
+  const normalized = iconKey.toLowerCase();
+  if (normalized.includes("rice-bowl") || normalized.includes("bowl")) {
+    return '<path d="M6 13h20l-2 9H8l-2-9Zm4-4h12M11 22v4M21 22v4" />';
+  }
+  if (normalized.includes("burger")) {
+    return '<path d="M7 13h18M8 10c1.5-4 14.5-4 16 0M7 16h18M9 20h14" />';
+  }
+  if (normalized.includes("leaf") || normalized.includes("vegetable")) {
+    return '<path d="M8 21C8 11 14 6 25 5c-1 11-6 17-17 16Zm1 0 10-10" />';
+  }
+  if (normalized.includes("fish") || normalized.includes("seafood")) {
+    return '<path d="M5 16c5-7 12-7 19 0-7 7-14 7-19 0Zm19 0 4-4v8l-4-4ZM11 14h.01M11 18h.01" />';
+  }
+  if (normalized.includes("coffee") || normalized.includes("drink")) {
+    return '<path d="M8 10h15v10a4 4 0 0 1-4 4h-7a4 4 0 0 1-4-4V10Zm15 3h2a3 3 0 0 1 0 6h-2M11 6c0-2 2-2 2-4M16 6c0-2 2-2 2-4" />';
+  }
+  if (normalized.includes("hot-pot") || normalized.includes("taiwan")) {
+    return '<path d="M6 13h20l-2 9H8l-2-9Zm4-4h12M13 5v4M19 5v4M9 26h14" />';
+  }
+  if (normalized.includes("bed") || normalized.includes("lodging")) {
+    return '<path d="M5 20v-9h22v9M5 16h22M8 11V8h6a3 3 0 0 1 3 3M5 24v-4M27 24v-4" />';
+  }
+  if (normalized.includes("home")) {
+    return '<path d="m5 14 11-9 11 9v12H5V14Zm7 12v-7h8v7" />';
+  }
+  if (normalized.includes("info")) {
+    return '<circle cx="16" cy="16" r="11" /><path d="M16 14v7M16 10h.01" />';
+  }
+  if (normalized.includes("tree") || normalized.includes("park")) {
+    return '<path d="M16 5 9 15h4l-5 7h16l-5-7h4L16 5ZM16 22v5" />';
+  }
+  if (normalized.includes("confetti") || normalized.includes("play")) {
+    return '<path d="m7 24 12-12 6 6L13 30 7 24Zm3-13 3-3m5 1 2-4m2 9 4-1" />';
+  }
+  if (normalized.includes("bank") || normalized.includes("culture")) {
+    return '<path d="m4 12 12-7 12 7H4Zm3 3v6m5-6v6m8-6v6m5-6v6M4 25h24" />';
+  }
+  if (normalized.includes("mountain") || normalized.includes("nature")) {
+    return '<path d="m4 25 8-12 4 6 3-4 7 10H4Zm8-12 3-5 4 7" />';
+  }
+  if (normalized.includes("store") || normalized.includes("shopping")) {
+    return '<path d="M6 13h20l-2-7H8l-2 7Zm0 0v13h20V13M11 18h10v8H11" />';
+  }
+  if (normalized.includes("map-pin")) {
+    return '<path d="M16 28s8-7.2 8-14a8 8 0 1 0-16 0c0 6.8 8 14 8 14Z" /><circle cx="16" cy="14" r="2.5" />';
+  }
+  return '<path d="M9 5v9M6 5v6a3 3 0 0 0 6 0V5M9 14v12M20 5v21M20 5c4 3 4 8 0 11" />';
+}
+
+function cuisineIconSvg(iconKey: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none"><g stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${cuisineIconShape(iconKey)}</g></svg>`;
+}
+
+async function cuisineIconImageData(iconKey: string): Promise<ImageData> {
+  const image = new Image();
+  image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cuisineIconSvg(iconKey))}`;
+  await image.decode();
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) throw new Error("2D canvas context is unavailable");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return context.getImageData(0, 0, canvas.width, canvas.height);
+}
+
+async function ensureCuisineIcons(map: MapLibreMap, iconKeys: string[]): Promise<void> {
+  const uniqueIconKeys = [...new Set(iconKeys)];
+  await Promise.all(
+    uniqueIconKeys.map(async (iconKey) => {
+      const imageName = cuisineIconName(iconKey);
+      if (map.hasImage(imageName)) return;
+      try {
+        const imageData = await cuisineIconImageData(iconKey);
+        if (!map.hasImage(imageName)) map.addImage(imageName, imageData, { pixelRatio: 4 });
+      } catch (error) {
+        console.error(`Failed to create map icon "${iconKey}"`, error);
+      }
+    }),
+  );
+}
+
+function tourismIconKey(place: TourismPlace): string {
+  return place.icon_key ?? tourismFallbackIconByDataset[place.source_dataset].iconKey;
+}
+
+function tourismFeatureCollection(places: TourismPlace[]) {
+  return {
+    type: "FeatureCollection" as const,
+    features: places.map((place) => ({
+      type: "Feature" as const,
+      geometry: {
+        type: "Point" as const,
+        coordinates: [place.longitude, place.latitude] as [number, number],
+      },
+      properties: {
+        tourism_place_id: place.id,
+        tourism_category: place.category,
+        tourism_icon: cuisineIconName(tourismIconKey(place)),
+        tourism_color: place.icon_key
+          ? place.icon_color
+          : tourismFallbackIconByDataset[place.source_dataset].color,
+      } satisfies TourismFeatureProperties,
     })),
   };
 }
@@ -235,11 +372,76 @@ function addRestaurantSourceAndLayers(map: MapLibreMap) {
     source: restaurantSourceId,
     filter: ["!", ["has", "point_count"]],
     layout: {
-      "text-field": ["get", "cuisine_initial"],
-      "text-size": 11,
-      "text-allow-overlap": true,
+      "icon-image": ["get", "cuisine_icon"],
+      "icon-size": ["case", ["get", "is_selected"], 0.9, 0.75],
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+    },
+  });
+}
+
+function addTourismSourceAndLayers(map: MapLibreMap) {
+  if (map.getSource(tourismSourceId)) return;
+
+  map.addSource(tourismSourceId, {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+    cluster: true,
+    clusterMaxZoom: 13,
+    clusterRadius: 50,
+  });
+  map.addLayer({
+    id: tourismClusterLayerId,
+    type: "circle",
+    source: tourismSourceId,
+    filter: ["has", "point_count"],
+    paint: {
+      "circle-color": "#657b8c",
+      "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 50, 27],
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": 2,
+    },
+  });
+  map.addLayer({
+    id: tourismClusterCountLayerId,
+    type: "symbol",
+    source: tourismSourceId,
+    filter: ["has", "point_count"],
+    layout: {
+      "text-field": [
+        "case",
+        [">", ["get", "point_count"], 100],
+        "100+",
+        ["to-string", ["get", "point_count"]],
+      ],
+      "text-size": 12,
+      "text-font": ["Open Sans Bold"],
     },
     paint: { "text-color": "#ffffff" },
+  });
+  map.addLayer({
+    id: tourismLayerId,
+    type: "circle",
+    source: tourismSourceId,
+    filter: ["!", ["has", "point_count"]],
+    paint: {
+      "circle-color": ["get", "tourism_color"],
+      "circle-radius": 12,
+      "circle-stroke-color": "#ffffff",
+      "circle-stroke-width": 2,
+    },
+  });
+  map.addLayer({
+    id: tourismLabelLayerId,
+    type: "symbol",
+    source: tourismSourceId,
+    filter: ["all", ["!", ["has", "point_count"]], ["has", "tourism_icon"]],
+    layout: {
+      "icon-image": ["get", "tourism_icon"],
+      "icon-size": 0.8,
+      "icon-allow-overlap": true,
+      "icon-ignore-placement": true,
+    },
   });
 }
 
@@ -247,9 +449,20 @@ function sourceFromMap(map: MapLibreMap) {
   return map.getSource(restaurantSourceId) as GeoJSONSource | undefined;
 }
 
+function tourismSourceFromMap(map: MapLibreMap) {
+  return map.getSource(tourismSourceId) as GeoJSONSource | undefined;
+}
+
 function featureAtMapPoint(map: MapLibreMap, event: MapMouseEvent) {
   return map.queryRenderedFeatures(event.point, {
-    layers: [clusterLayerId, clusterCountLayerId, restaurantLayerId],
+    layers: [
+      clusterLayerId,
+      clusterCountLayerId,
+      restaurantLayerId,
+      tourismClusterLayerId,
+      tourismClusterCountLayerId,
+      tourismLayerId,
+    ],
   })[0] as MapGeoJSONFeature | undefined;
 }
 
@@ -260,9 +473,13 @@ export function PublicMapPage() {
   const [retryKey, setRetryKey] = useState(0);
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "error">("loading");
   const [restaurants, setRestaurants] = useState<MapRestaurant[]>([]);
+  const [tourismPlaces, setTourismPlaces] = useState<TourismPlace[]>([]);
   const restaurantsRef = useRef<MapRestaurant[]>([]);
+  const tourismPlacesRef = useRef<TourismPlace[]>([]);
   restaurantsRef.current = restaurants;
+  tourismPlacesRef.current = tourismPlaces;
   const [selectedRestaurant, setSelectedRestaurant] = useState<MapRestaurant | null>(null);
+  const [selectedTourismPlace, setSelectedTourismPlace] = useState<TourismPlace | null>(null);
   const [message, setMessage] = useState("正在取得位置…");
   const [messageTone, setMessageTone] = useState<"neutral" | "error">("neutral");
   const [searchQuery, setSearchQuery] = useState("");
@@ -292,36 +509,82 @@ export function PublicMapPage() {
     try {
       if (isClusterDemoEnabled()) {
         setRestaurants(clusterDemoRestaurants);
+        setTourismPlaces([]);
         setSelectedRestaurant(null);
+        setSelectedTourismPlace(null);
         setMessage("群聚展示模式：中原附近 10 筆測試資料");
         return;
       }
 
-      const response = await fetchPublicMapRestaurants(
-        currentBounds(map),
-        activeFiltersRef.current,
-        controller.signal,
-      );
+      const [restaurantResult, tourismResult] = await Promise.allSettled([
+        activeFiltersRef.current.showBiteMapRestaurants
+          ? fetchPublicMapRestaurants(
+              currentBounds(map),
+              activeFiltersRef.current,
+              controller.signal,
+            )
+          : Promise.resolve({ status: "ok" as const, restaurants: [] }),
+        activeFiltersRef.current.showTourismData
+          ? fetchPublicTourismPlaces(currentBounds(map), controller.signal)
+          : Promise.resolve({ places: [] as TourismPlace[], has_more: false }),
+      ]);
+      if (
+        activeFiltersRef.current.showBiteMapRestaurants &&
+        restaurantResult.status === "rejected"
+      ) {
+        throw restaurantResult.reason;
+      }
+      const response =
+        restaurantResult.status === "fulfilled"
+          ? restaurantResult.value
+          : { status: "ok" as const, restaurants: [] };
+      const tourismResponse =
+        tourismResult.status === "fulfilled"
+          ? tourismResult.value
+          : { places: [] as TourismPlace[], has_more: false };
+      setTourismPlaces(tourismResponse.places);
       if (response.status === "zoom_required") {
         setRestaurants(response.restaurants);
         setSelectedRestaurant(null);
+        setSelectedTourismPlace(null);
         setMessage("範圍較大，先顯示部分店家；放大地圖可查看更完整的群聚。");
         return;
       }
       setRestaurants(response.restaurants);
       setSelectedRestaurant(null);
+      setSelectedTourismPlace(null);
       const center = map.getCenter();
       window.localStorage.setItem(
         viewportStorageKey,
         JSON.stringify({ longitude: center.lng, latitude: center.lat, zoom: map.getZoom() }),
       );
-      setMessage(
-        response.restaurants.length === 0
-          ? hasMapFilters(activeFiltersRef.current)
+      if (
+        !activeFiltersRef.current.showBiteMapRestaurants &&
+        !activeFiltersRef.current.showTourismData
+      ) {
+        setMessage("請至少選擇一種資料來源，才能顯示店家。");
+      } else if (!activeFiltersRef.current.showBiteMapRestaurants) {
+        setMessage(`目前顯示 ${tourismResponse.places.length} 筆觀光署資料`);
+      } else if (response.restaurants.length === 0) {
+        setMessage(
+          hasMapFilters(activeFiltersRef.current)
             ? "這個區域沒有符合條件的店家。"
-            : "這個區域目前沒有已發布店家。"
-          : `找到 ${response.restaurants.length} 間店家`,
-      );
+            : "這個區域目前沒有已發布店家。",
+        );
+      } else {
+        setMessage(
+          activeFiltersRef.current.showTourismData
+            ? `找到 ${response.restaurants.length} 間 BiteMap 店家，另有 ${tourismResponse.places.length} 筆觀光署資料`
+            : `找到 ${response.restaurants.length} 間 BiteMap 店家`,
+        );
+      }
+      if (tourismResult.status === "rejected") {
+        setMessage(
+          activeFiltersRef.current.showBiteMapRestaurants
+            ? "BiteMap 店家已載入；觀光署資料暫時無法取得。"
+            : "觀光署資料暫時無法取得，請稍後重試。",
+        );
+      }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       setMessageTone("error");
@@ -442,6 +705,7 @@ export function PublicMapPage() {
         if (disposed) return;
         mapReady = true;
         addRestaurantSourceAndLayers(map);
+        addTourismSourceAndLayers(map);
         if (pendingPosition) applyLocation(pendingPosition);
         setMapStatus("ready");
         void searchMap(map);
@@ -456,13 +720,19 @@ export function PublicMapPage() {
         const feature = featureAtMapPoint(map, event);
         if (!feature) {
           setSelectedRestaurant(null);
+          setSelectedTourismPlace(null);
           setSearchResults(null);
           setIsFilterOpen(false);
           return;
         }
 
+        const isTourismFeature = [
+          tourismClusterLayerId,
+          tourismClusterCountLayerId,
+          tourismLayerId,
+        ].includes(feature.layer?.id ?? "");
         if (feature.properties?.cluster_id !== undefined) {
-          const source = sourceFromMap(map);
+          const source = isTourismFeature ? tourismSourceFromMap(map) : sourceFromMap(map);
           if (!source) return;
           const clusterId = Number(feature.properties.cluster_id);
           const expansionZoom = await source.getClusterExpansionZoom(clusterId);
@@ -475,9 +745,22 @@ export function PublicMapPage() {
           return;
         }
 
+        if (isTourismFeature) {
+          const tourismPlaceId = String(feature.properties?.tourism_place_id ?? "");
+          const tourismPlace = tourismPlacesRef.current.find((item) => item.id === tourismPlaceId);
+          if (tourismPlace) {
+            setSelectedRestaurant(null);
+            setSelectedTourismPlace(tourismPlace);
+          }
+          return;
+        }
+
         const restaurantId = String(feature.properties?.restaurant_id ?? "");
         const restaurant = restaurantsRef.current.find((item) => item.id === restaurantId);
-        if (restaurant) setSelectedRestaurant(restaurant);
+        if (restaurant) {
+          setSelectedTourismPlace(null);
+          setSelectedRestaurant(restaurant);
+        }
       });
       map.on("error", () => {
         if (!map.loaded()) {
@@ -503,9 +786,53 @@ export function PublicMapPage() {
   useEffect(() => {
     const map = mapRef.current;
     const source = map ? sourceFromMap(map) : undefined;
-    if (!source || mapStatus !== "ready") return;
-    source.setData(restaurantFeatureCollection(restaurants, selectedRestaurant?.id ?? null));
+    if (!map || !source || mapStatus !== "ready") return;
+    void ensureCuisineIcons(
+      map,
+      restaurants.map((restaurant) => restaurant.primary_cuisine.icon_key),
+    ).then(() => {
+      if (mapRef.current !== map) return;
+      source.setData(restaurantFeatureCollection(restaurants, selectedRestaurant?.id ?? null));
+    });
   }, [mapStatus, restaurants, selectedRestaurant]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const source = map ? tourismSourceFromMap(map) : undefined;
+    if (!map || !source || mapStatus !== "ready") return;
+    void ensureCuisineIcons(
+      map,
+      tourismPlaces.map(tourismIconKey),
+    ).then(() => {
+      if (mapRef.current !== map) return;
+      source.setData(tourismFeatureCollection(tourismPlaces));
+    });
+  }, [mapStatus, tourismPlaces]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mapStatus !== "ready") return;
+    const visibility = activeFilters.showBiteMapRestaurants ? "visible" : "none";
+    [clusterLayerId, clusterCountLayerId, restaurantLayerId, restaurantLabelLayerId].forEach(
+      (layerId) => {
+        if (map.getLayer(layerId)) map.setLayoutProperty(layerId, "visibility", visibility);
+      },
+    );
+  }, [activeFilters.showBiteMapRestaurants, mapStatus]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || mapStatus !== "ready") return;
+    const visibility = activeFilters.showTourismData ? "visible" : "none";
+    [
+      tourismClusterLayerId,
+      tourismClusterCountLayerId,
+      tourismLayerId,
+      tourismLabelLayerId,
+    ].forEach((layerId) => {
+      if (map.getLayer(layerId)) map.setLayoutProperty(layerId, "visibility", visibility);
+    });
+  }, [activeFilters.showTourismData, mapStatus]);
 
   async function returnToCurrentLocation() {
     const map = mapRef.current;
@@ -566,6 +893,8 @@ export function PublicMapPage() {
 
   function applyFilters() {
     const nextFilters = cloneMapFilters(pendingFilters);
+    if (!nextFilters.showBiteMapRestaurants) setSelectedRestaurant(null);
+    if (!nextFilters.showTourismData) setSelectedTourismPlace(null);
     setActiveFilters(nextFilters);
     activeFiltersRef.current = nextFilters;
     setPendingFilters(cloneMapFilters(nextFilters));
@@ -574,7 +903,16 @@ export function PublicMapPage() {
     if (mapRef.current && mapStatus === "ready") void searchMap(mapRef.current);
   }
 
-  function removeFilter(key: "city" | "district" | "priceRange" | "cuisine", value?: string) {
+  function removeFilter(
+    key:
+      | "city"
+      | "district"
+      | "priceRange"
+      | "cuisine"
+      | "biteMapSource"
+      | "tourismSource",
+    value?: string,
+  ) {
     const nextFilters = cloneMapFilters(activeFilters);
     if (key === "city") {
       nextFilters.city = "";
@@ -585,6 +923,10 @@ export function PublicMapPage() {
       nextFilters.priceRanges = nextFilters.priceRanges.filter((item) => item !== value);
     } else if (key === "cuisine" && value) {
       nextFilters.cuisineIds = nextFilters.cuisineIds.filter((item) => item !== value);
+    } else if (key === "biteMapSource") {
+      nextFilters.showBiteMapRestaurants = true;
+    } else if (key === "tourismSource") {
+      nextFilters.showTourismData = true;
     }
     setActiveFilters(nextFilters);
     activeFiltersRef.current = nextFilters;
@@ -672,6 +1014,12 @@ export function PublicMapPage() {
         <RestaurantPreviewCard
           restaurant={selectedRestaurant}
           onClose={() => setSelectedRestaurant(null)}
+        />
+      ) : null}
+      {selectedTourismPlace ? (
+        <TourismPreviewCard
+          place={selectedTourismPlace}
+          onClose={() => setSelectedTourismPlace(null)}
         />
       ) : null}
     </main>

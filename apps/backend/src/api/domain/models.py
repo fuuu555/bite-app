@@ -22,7 +22,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from api.core.database import Base
@@ -310,6 +310,150 @@ class Restaurant(Base):
         back_populates="restaurant",
         cascade="all, delete-orphan",
         order_by="(RestaurantPhoto.sort_order, RestaurantPhoto.created_at)",
+    )
+
+
+class TourismSourcePlace(Base):
+    """Official tourism place kept outside the BiteMap restaurant master data.
+
+    觀光署官方地點資料獨立保存，避免直接污染 BiteMap 的手動店家主資料。
+    """
+
+    __tablename__ = "tourism_source_places"
+    __table_args__ = (
+        UniqueConstraint(
+            "source_dataset",
+            "source_record_id",
+            name="uq_tourism_source_places_dataset_record",
+        ),
+        CheckConstraint(
+            "source_dataset IN ('food', 'attraction', 'hotel', 'service_site')",
+            name="ck_tourism_source_places_dataset",
+        ),
+        CheckConstraint(
+            "category IN ('restaurant', 'attraction', 'hotel', 'service_site')",
+            name="ck_tourism_source_places_category",
+        ),
+        CheckConstraint(
+            "status IN ('active', 'inactive', 'invalid', 'pending_review', 'published')",
+            name="ck_tourism_source_places_status",
+        ),
+        CheckConstraint(
+            "latitude IS NULL OR latitude BETWEEN -90 AND 90",
+            name="ck_tourism_source_places_latitude",
+        ),
+        CheckConstraint(
+            "longitude IS NULL OR longitude BETWEEN -180 AND 180",
+            name="ck_tourism_source_places_longitude",
+        ),
+        CheckConstraint(
+            "(latitude IS NULL) = (longitude IS NULL)",
+            name="ck_tourism_source_places_coordinate_pair",
+        ),
+        Index("ix_tourism_source_places_location_gist", "location", postgresql_using="gist"),
+        Index("ix_tourism_source_places_category_status", "category", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_dataset: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_record_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    name: Mapped[str] = mapped_column(String(240), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    latitude: Mapped[float | None] = mapped_column(nullable=True)
+    longitude: Mapped[float | None] = mapped_column(nullable=True)
+    location: Mapped[object | None] = mapped_column(
+        Geography(geometry_type="POINT", srid=4326, spatial_index=False),
+        Computed(
+            "CASE WHEN latitude IS NULL THEN NULL ELSE "
+            "ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography END",
+            persisted=True,
+        ),
+        nullable=True,
+    )
+    official_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    opening_hours: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    fetched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), default="active", nullable=False)
+    tags: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    icon_key: Mapped[str] = mapped_column(String(40), default="map-pin", nullable=False)
+    icon_color: Mapped[str] = mapped_column(String(7), default="#657b8c", nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    display_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    display_icon_key: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    is_map_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    linked_restaurant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("restaurants.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+    )
+    validation_errors: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    raw_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
+class TourismImportRun(Base):
+    """One official tourism data import report / 單次官方觀光資料匯入報告。"""
+
+    __tablename__ = "tourism_import_runs"
+    __table_args__ = (
+        CheckConstraint(
+            "source_dataset IN ('food', 'attraction', 'hotel', 'service_site')",
+            name="ck_tourism_import_runs_dataset",
+        ),
+        CheckConstraint(
+            "status IN ('running', 'succeeded', 'failed')",
+            name="ck_tourism_import_runs_status",
+        ),
+        Index("ix_tourism_import_runs_dataset_started", "source_dataset", "started_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_dataset: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="running", nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    downloaded_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    inserted_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    updated_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    unchanged_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    invalid_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    deactivated_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class TourismDeletedSourceRecord(Base):
+    """Minimal suppression marker preventing deleted official rows from being re-imported."""
+
+    __tablename__ = "tourism_deleted_source_records"
+    __table_args__ = (
+        CheckConstraint(
+            "source_dataset IN ('food', 'attraction', 'hotel', 'service_site')",
+            name="ck_tourism_deleted_source_records_dataset",
+        ),
+    )
+
+    source_dataset: Mapped[str] = mapped_column(String(32), primary_key=True)
+    source_record_id: Mapped[str] = mapped_column(String(160), primary_key=True)
+    deleted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
 

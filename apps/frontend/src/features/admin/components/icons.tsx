@@ -2,6 +2,7 @@ import type { SVGProps } from "react";
 
 type IconName =
   | "restaurant"
+  | "tourism"
   | "cuisine"
   | "logout"
   | "map"
@@ -12,6 +13,7 @@ type IconName =
 
 const paths: Record<IconName, React.ReactNode> = {
   restaurant: <path d="M4 5h16v14H4zM8 9h8M8 13h5" />,
+  tourism: <path d="M12 21s6-5.2 6-10a6 6 0 1 0-12 0c0 4.8 6 10 6 10Zm0-8a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" />,
   cuisine: <path d="M5 4v7a3 3 0 0 0 3 3V4m-3 4h3m8-4v16m0-16c3 2 3 7 0 9" />,
   logout: <path d="M10 5H5v14h5m4-4 4-3-4-3m4 3H9" />,
   map: <path d="m3 6 5-2 8 3 5-2v13l-5 2-8-3-5 2zm5-2v13m8-10v13" />,

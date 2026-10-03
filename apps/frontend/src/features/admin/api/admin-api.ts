@@ -88,6 +88,68 @@ export type MapPerformanceMetrics = {
   recent_queries: MapQueryMetric[];
 };
 
+export type TourismImportRun = {
+  id: string;
+  source_dataset: "food" | "attraction" | "hotel" | "service_site";
+  source_url: string;
+  status: "running" | "succeeded" | "failed";
+  started_at: string;
+  completed_at: string | null;
+  downloaded_count: number;
+  inserted_count: number;
+  updated_count: number;
+  unchanged_count: number;
+  invalid_count: number;
+  deactivated_count: number;
+  error_message: string | null;
+};
+
+export type TourismImportStart = {
+  status: "started" | "already_running";
+  datasets: TourismImportRun["source_dataset"][];
+};
+
+export type TourismAdminPlace = {
+  id: string;
+  source_dataset: TourismImportRun["source_dataset"];
+  source_record_id: string;
+  category: "restaurant" | "attraction" | "hotel" | "service_site";
+  name: string;
+  official_name: string;
+  address: string | null;
+  official_address: string | null;
+  icon_key: string | null;
+  icon_classification_slug: string | null;
+  official_icon_key: string;
+  icon_color: string;
+  latitude: number;
+  longitude: number;
+  is_map_enabled: boolean;
+  linked_restaurant_id: string | null;
+};
+
+export type TourismPlaceDeleteResponse = { deleted: boolean };
+export type TourismPlacesDeleteResponse = { deleted_count: number; deleted_ids: string[] };
+
+export type TourismAdminPlacesResponse = {
+  places: TourismAdminPlace[];
+  total: number;
+  has_more: boolean;
+};
+
+export type TourismDuplicatePair = {
+  left: TourismAdminPlace;
+  right: TourismAdminPlace;
+  name_similarity: number;
+  match_reasons: string[];
+};
+
+export type TourismDuplicatePairsResponse = {
+  pairs: TourismDuplicatePair[];
+  total: number;
+  has_more: boolean;
+};
+
 export class AdminApiError extends Error {
   constructor(
     public readonly status: number,

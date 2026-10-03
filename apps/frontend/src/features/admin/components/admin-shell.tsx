@@ -11,7 +11,8 @@ type AdminUser = { id: string; email: string; role: string };
 
 const navigation = [
   { href: "/admin/restaurants", label: "店家管理", icon: "restaurant" as const },
-  { href: "/admin/cuisines", label: "料理分類", icon: "cuisine" as const },
+  { href: "/admin/tourism-places", label: "觀光署資料店家", icon: "tourism" as const },
+  { href: "/admin/cuisines", label: "圖示分類", icon: "cuisine" as const },
   { href: "/admin/avatars", label: "頭貼資產", icon: "user" as const },
   { href: "/admin/monitoring", label: "系統監控", icon: "monitor" as const },
 ];

@@ -178,7 +178,9 @@ async def query_public_restaurant_search(
 async def list_active_cuisines(session: AsyncSession) -> list[MapCuisineResponse]:
     """List active cuisines for public filters / 提供公開篩選使用的啟用料理分類。"""
     statement: Select[tuple[Cuisine]] = (
-        select(Cuisine).where(Cuisine.is_active.is_(True)).order_by(Cuisine.display_name)
+        select(Cuisine)
+        .where(Cuisine.is_active.is_(True), Cuisine.slug.not_like("tourism-%"))
+        .order_by(Cuisine.display_name)
     )
     cuisines = (await session.execute(statement)).scalars()
     return [
