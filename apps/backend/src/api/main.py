@@ -17,6 +17,7 @@ from api.routers.admin import router as admin_router
 from api.routers.auth import router as auth_router
 from api.routers.chat import router as chat_router
 from api.routers.explore import router as explore_router
+from api.routers.itinerary import router as itinerary_router
 from api.routers.meals import router as meals_router
 from api.routers.public_map import router as public_map_router
 from api.routers.reviews import router as reviews_router
@@ -51,6 +52,7 @@ app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(public_map_router)
 app.include_router(explore_router)
+app.include_router(itinerary_router)
 app.include_router(reviews_router)
 app.include_router(meals_router)
 app.include_router(chat_router)

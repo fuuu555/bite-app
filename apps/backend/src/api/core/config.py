@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     realtime_channel: str = "bitemap:realtime"
     chat_message_rate_limit: int = 5
     chat_message_rate_window_seconds: int = 10
+    ai_api_key: str | None = None
+    ai_base_url: str = "https://api.openai.com/v1"
+    ai_model: str | None = None
+    ai_timeout_seconds: float = 10.0
 
     model_config = SettingsConfigDict(
         env_file=(".env", ".env.local"),

@@ -3,6 +3,7 @@
 import {
   IconAdjustmentsHorizontal,
   IconArrowRight,
+  IconRoute,
   IconSearch,
   IconToolsKitchen3,
 } from "@tabler/icons-react";
@@ -256,6 +257,11 @@ function ExplorePageContent({
         </div>
         <div className="explore-page__intro">
           <h1>今天想吃什麼？</h1>
+          <Link className="explore-travel-link" href="/travel">
+            <IconRoute aria-hidden="true" />
+            AI 規劃全台旅遊行程
+            <IconArrowRight aria-hidden="true" />
+          </Link>
         </div>
       </header>
 

@@ -553,6 +553,97 @@ class TourismPlacesResponse(BaseModel):
     has_more: bool
 
 
+ItineraryQuickAction = Literal["eat", "stay", "attraction", "plan"]
+ItineraryDuration = Literal["half_day", "full_day"]
+ItineraryTransport = Literal["walking", "public_transport", "driving"]
+ItineraryPlaceSource = Literal["bitemap", "tourism"]
+ItineraryPlanSource = Literal["ai", "rules"]
+
+
+class ItineraryPlanRequest(BaseModel):
+    """Traveler preferences used to create a grounded itinerary / 旅客行程需求。"""
+
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    city: str | None = Field(default=None, min_length=2, max_length=40)
+    quick_action: ItineraryQuickAction = "plan"
+    duration: ItineraryDuration = "half_day"
+    radius_km: Literal[2, 5, 10] = 5
+    transport: ItineraryTransport = "public_transport"
+    interests: list[str] = Field(default_factory=list, max_length=5)
+    meal_preference: str | None = Field(default=None, max_length=80)
+    include_lodging: bool = False
+    prompt: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def require_location(self) -> ItineraryPlanRequest:
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("latitude and longitude must be provided together")
+        if self.latitude is None and not self.city:
+            raise ValueError("latitude and longitude or city must be provided")
+        return self
+
+
+class ItineraryIntentResponse(BaseModel):
+    """Normalized intent shown in the generated plan / 正規化後的需求。"""
+
+    city: str | None
+    duration: ItineraryDuration
+    transport: ItineraryTransport
+    interests: list[str]
+    meal_preference: str | None
+    include_lodging: bool
+
+
+class ItineraryPlaceResponse(BaseModel):
+    """A grounded BiteMap or official tourism candidate / 可追溯推薦地點。"""
+
+    id: uuid.UUID
+    source: ItineraryPlaceSource
+    source_dataset: TourismSourceDataset | Literal["bitemap"]
+    source_record_id: str | None
+    category: TourismPlaceCategory
+    name: str
+    address: str | None
+    latitude: float
+    longitude: float
+    distance_meters: float
+    description: str | None = None
+    phone: str | None = None
+    official_url: str | None = None
+    opening_hours: str | None = None
+    source_updated_at: datetime | None = None
+    tags: list[str] = Field(default_factory=list)
+    cuisine_name: str | None = None
+    price_range: PriceRange | None = None
+    icon_color: str = "#657B8C"
+
+
+class ItineraryStopResponse(BaseModel):
+    """One ordered itinerary stop / 一個有順序的行程節點。"""
+
+    order: int
+    role: Literal["attraction", "meal", "lodging", "service_site"]
+    reason: str
+    suggested_duration_minutes: int
+    place: ItineraryPlaceResponse
+
+
+class ItineraryPlanResponse(BaseModel):
+    """Grounded itinerary response / 具資料來源追溯的旅遊行程。"""
+
+    source: ItineraryPlanSource
+    title: str
+    summary: str
+    center_latitude: float
+    center_longitude: float
+    city: str | None
+    radius_km: int
+    intent: ItineraryIntentResponse
+    stops: list[ItineraryStopResponse]
+    alternatives: list[ItineraryPlaceResponse]
+
+
 ExploreSort = Literal[
     "recommended",
     "distance",
