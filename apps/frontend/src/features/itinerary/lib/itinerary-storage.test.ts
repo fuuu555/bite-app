@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   addItineraryPlace,
+  buildItineraryRouteLine,
   buildGoogleMapsDirectionsUrl,
   emptyItinerary,
   moveItineraryPlace,
@@ -89,5 +90,14 @@ describe("itinerary storage", () => {
     expect(url).toContain("origin=24.94%2C121.21");
     expect(url).toContain("destination=24.96%2C121.23");
     expect(url).toContain("waypoints=24.95%2C121.22");
+  });
+
+  it("builds an internal route line and skips places without coordinates", () => {
+    expect(
+      buildItineraryRouteLine([restaurant, { latitude: null, longitude: null }, attraction]),
+    ).toEqual([
+      [121.22, 24.95],
+      [121.23, 24.96],
+    ]);
   });
 });

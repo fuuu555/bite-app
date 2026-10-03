@@ -95,6 +95,8 @@ test("public map auto-refreshes after moving and opens a restaurant preview", as
     await expect(page.getByRole("heading", { name: /把想去的地方/ })).toBeVisible();
     await expect(page.getByRole("heading", { name: "今日行程" })).toBeVisible();
     await expect(page.getByText("公開地圖驗收店家")).toBeVisible();
+    await page.getByRole("button", { name: "顯示內部路線" }).click();
+    await expect(page.getByText(/已在 BiteMap 內部地圖顯示行程順序線路/)).toBeVisible();
     await page.getByRole("link", { name: "回到地圖" }).click();
     await expect(page).toHaveURL(/\/map$/);
     await expect(page.getByText("1 個地點")).toBeVisible();

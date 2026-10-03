@@ -165,6 +165,20 @@ export function getItineraryCategoryLabel(category: ItineraryCategory) {
   }[category];
 }
 
+export function buildItineraryRouteLine(
+  places: Array<Pick<SavedItineraryPlace, "latitude" | "longitude">>,
+): Array<[number, number]> {
+  return places
+    .filter(
+      (place): place is { latitude: number; longitude: number } =>
+        typeof place.latitude === "number" &&
+        Number.isFinite(place.latitude) &&
+        typeof place.longitude === "number" &&
+        Number.isFinite(place.longitude),
+    )
+    .map((place) => [place.longitude, place.latitude]);
+}
+
 export function toRestaurantItineraryPlace(restaurant: MapRestaurant): SavedItineraryPlace {
   return {
     id: restaurant.id,

@@ -4,11 +4,13 @@ import { useEffect, useRef } from "react";
 import type { Map as MapLibreMap, Marker as MapLibreMarker } from "maplibre-gl";
 
 import type { ItineraryStop } from "@/features/itinerary/api/itinerary-api";
+import { buildItineraryRouteLine } from "@/features/itinerary/lib/itinerary-storage";
 
 type ItineraryMapProps = {
   latitude: number;
   longitude: number;
   stops: ItineraryMapStop[];
+  showRoute?: boolean;
 };
 
 export type ItineraryMapStop = {
@@ -76,7 +78,7 @@ function routeFeatureCollection(stops: ItineraryMapStop[]): RouteFeatureCollecti
         type: "Feature",
         geometry: {
           type: "LineString",
-          coordinates: stops.map((stop) => [stop.place.longitude, stop.place.latitude]),
+          coordinates: buildItineraryRouteLine(stops.map((stop) => stop.place)),
         },
         properties: {},
       },
@@ -84,7 +86,7 @@ function routeFeatureCollection(stops: ItineraryMapStop[]): RouteFeatureCollecti
   };
 }
 
-export function ItineraryMap({ latitude, longitude, stops }: ItineraryMapProps) {
+export function ItineraryMap({ latitude, longitude, stops, showRoute = true }: ItineraryMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -119,7 +121,7 @@ export function ItineraryMap({ latitude, longitude, stops }: ItineraryMapProps) 
 
       map.on("load", () => {
         if (!map) return;
-        if (stops.length > 1) {
+        if (showRoute && stops.length > 1) {
           map.addSource("itinerary-route", {
             type: "geojson",
             data: routeFeatureCollection(stops),
@@ -172,7 +174,7 @@ export function ItineraryMap({ latitude, longitude, stops }: ItineraryMapProps) 
       originMarker?.remove();
       map?.remove();
     };
-  }, [latitude, longitude, stops]);
+  }, [latitude, longitude, showRoute, stops]);
 
   return <div ref={containerRef} className="itinerary-map" aria-label="旅遊行程地圖" />;
 }
