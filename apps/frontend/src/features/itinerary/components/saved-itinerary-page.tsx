@@ -16,7 +16,6 @@ import { useEffect, useMemo, useState } from "react";
 
 import { ItineraryMap, type ItineraryMapStop } from "@/features/itinerary/components/itinerary-map";
 import {
-  buildGoogleMapsDirectionsUrl,
   clearItinerary,
   emptyItinerary,
   getItineraryCategoryLabel,
@@ -58,6 +57,7 @@ export function SavedItineraryPage() {
   const [itinerary, setItinerary] = useState<SavedItinerary>(emptyItinerary);
   const [isHydrated, setIsHydrated] = useState(false);
   const [clearPending, setClearPending] = useState(false);
+  const [showInternalRoute, setShowInternalRoute] = useState(false);
   const [message, setMessage] = useState("");
   const [location, setLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
@@ -95,13 +95,13 @@ export function SavedItineraryPage() {
     setClearPending(false);
   }
 
-  function startNavigation() {
-    const url = buildGoogleMapsDirectionsUrl(itinerary.places, location);
-    if (!url) {
-      setMessage("目前沒有具備座標的地點，暫時無法開始導航。");
+  function showRouteOnInternalMap() {
+    if (!hasNavigablePlace) {
+      setMessage("目前沒有具備座標的地點，暫時無法顯示內部路線。");
       return;
     }
-    window.open(url, "_blank", "noopener,noreferrer");
+    setShowInternalRoute(true);
+    setMessage("已在內部地圖顯示行程順序線路。");
   }
 
   const mapStops = useMemo(
@@ -131,7 +131,7 @@ export function SavedItineraryPage() {
             <IconRoute aria-hidden="true" /> 我的行程
           </span>
           <h1>把想去的地方，排成一條走得通的路。</h1>
-          <p>吃飯、景點、住宿都選好後，在這裡調整順序並開啟 Google Maps 導航。</p>
+          <p>吃飯、景點、住宿都選好後，在這裡調整順序並在 BiteMap 內部地圖查看路線。</p>
         </div>
         <div className="saved-itinerary-header__count">
           <strong>{isHydrated ? itinerary.places.length : "—"}</strong>
@@ -242,21 +242,24 @@ export function SavedItineraryPage() {
               <button
                 className="button button--primary"
                 type="button"
-                onClick={startNavigation}
+                onClick={showRouteOnInternalMap}
                 disabled={!hasNavigablePlace}
               >
                 <IconNavigation aria-hidden="true" />
-                開始導航
+                顯示內部路線
               </button>
             </div>
             <ItineraryMap
               latitude={center.latitude}
               longitude={center.longitude}
               stops={mapStops}
+              showRoute={showInternalRoute}
             />
             <p className="saved-itinerary-map-panel__hint">
               {hasNavigablePlace
-                ? "順序會帶入 Google Maps；目前位置會優先作為導航起點。"
+                ? showInternalRoute
+                  ? "已在 BiteMap 內部地圖顯示行程順序線路；這是路線預覽，不代表即時道路導航。"
+                  : "點擊「顯示內部路線」，在 BiteMap 地圖上查看行程順序。"
                 : "請先加入至少一個有座標的地點。"}
             </p>
           </aside>
