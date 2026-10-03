@@ -1458,3 +1458,101 @@
     padding: 18px;
   }
 }
+
+@media (max-width: 760px) {
+  .public-map-itinerary-entry {
+    top: auto;
+    right: 10px;
+    bottom: 14px;
+    left: 10px;
+    width: auto;
+  }
+
+  .itinerary-map-summary {
+    padding: 12px;
+  }
+
+  .itinerary-map-summary__list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .itinerary-map-summary__list li:nth-child(n + 5) {
+    display: none;
+  }
+
+  .itinerary-map-summary__link {
+    min-height: 40px;
+  }
+
+  .public-map-page:has(.restaurant-preview) .public-map-itinerary-entry,
+  .public-map-page:has(.tourism-preview) .public-map-itinerary-entry {
+    display: none;
+  }
+
+  .public-map-page:has(.itinerary-map-summary) .public-map-message {
+    bottom: 166px;
+  }
+
+  .public-map-page:has(.itinerary-map-summary) .map-location-control {
+    bottom: 166px;
+  }
+
+  .public-map-page:has(.restaurant-preview) .map-location-control,
+  .public-map-page:has(.tourism-preview) .map-location-control {
+    bottom: 14px;
+  }
+
+  .saved-itinerary-page {
+    padding: 24px 16px 48px;
+  }
+
+  .saved-itinerary-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .saved-itinerary-header h1 {
+    font-size: 2.1rem;
+  }
+
+  .saved-itinerary-header__count {
+    display: flex;
+    width: 100%;
+    align-items: baseline;
+    justify-content: center;
+    gap: 7px;
+  }
+
+  .saved-itinerary-header__count strong {
+    font-size: 1.8rem;
+  }
+
+  .saved-itinerary-layout {
+    grid-template-columns: 1fr;
+    margin-top: 18px;
+  }
+
+  .saved-itinerary-route,
+  .saved-itinerary-map-panel {
+    padding: 18px;
+  }
+
+  .saved-itinerary-map-panel {
+    position: static;
+  }
+
+  .saved-itinerary-map-panel__heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .saved-itinerary-map-panel__heading .button {
+    width: 100%;
+  }
+
+  .saved-itinerary-map-panel .itinerary-map {
+    height: 300px;
+  }
+}

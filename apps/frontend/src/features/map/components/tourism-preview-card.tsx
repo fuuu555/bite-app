@@ -1,9 +1,11 @@
-import { IconMapPin, IconX } from "@tabler/icons-react";
+import { IconCheck, IconMapPin, IconPlus, IconX } from "@tabler/icons-react";
 
 import type { TourismPlace } from "@/features/map/api/public-map-api";
 
 type TourismPreviewCardProps = {
   place: TourismPlace;
+  isInItinerary: boolean;
+  onAddToItinerary: () => void;
   onClose: () => void;
 };
 
@@ -14,7 +16,7 @@ const categoryLabels: Record<TourismPlace["category"], string> = {
   service_site: "觀光署旅遊服務站",
 };
 
-export function TourismPreviewCard({ place, onClose }: TourismPreviewCardProps) {
+export function TourismPreviewCard({ place, isInItinerary, onAddToItinerary, onClose }: TourismPreviewCardProps) {
   return (
     <article className="tourism-preview" aria-labelledby="tourism-preview-title">
       <button
@@ -38,6 +40,15 @@ export function TourismPreviewCard({ place, onClose }: TourismPreviewCardProps) 
           <span>更新於 {new Date(place.source_updated_at).toLocaleDateString("zh-TW")}</span>
         ) : null}
       </div>
+      <button
+        className={`button ${isInItinerary ? "button--secondary" : "button--primary"} map-preview__itinerary-action`}
+        type="button"
+        onClick={onAddToItinerary}
+        disabled={isInItinerary}
+      >
+        {isInItinerary ? <IconCheck aria-hidden="true" /> : <IconPlus aria-hidden="true" />}
+        {isInItinerary ? "已加入行程" : "加入行程"}
+      </button>
       {place.official_url ? (
         <a href={place.official_url} target="_blank" rel="noreferrer">
           查看官方網站

@@ -1,14 +1,21 @@
-import { IconArrowRight, IconToolsKitchen3, IconX } from "@tabler/icons-react";
+import { IconArrowRight, IconCheck, IconPlus, IconToolsKitchen3, IconX } from "@tabler/icons-react";
 import Link from "next/link";
 
 import { type MapRestaurant, priceRangeLabels } from "@/features/map/api/public-map-api";
 
 type RestaurantPreviewCardProps = {
   restaurant: MapRestaurant;
+  isInItinerary: boolean;
+  onAddToItinerary: () => void;
   onClose: () => void;
 };
 
-export function RestaurantPreviewCard({ restaurant, onClose }: RestaurantPreviewCardProps) {
+export function RestaurantPreviewCard({
+  restaurant,
+  isInItinerary,
+  onAddToItinerary,
+  onClose,
+}: RestaurantPreviewCardProps) {
   return (
     <article className="restaurant-preview" aria-labelledby="restaurant-preview-title">
       <button
@@ -34,6 +41,15 @@ export function RestaurantPreviewCard({ restaurant, onClose }: RestaurantPreview
       </div>
       <h2 id="restaurant-preview-title">{restaurant.name}</h2>
       <p>{priceRangeLabels[restaurant.price_range]}</p>
+      <button
+        className={`button ${isInItinerary ? "button--secondary" : "button--primary"} map-preview__itinerary-action`}
+        type="button"
+        onClick={onAddToItinerary}
+        disabled={isInItinerary}
+      >
+        {isInItinerary ? <IconCheck aria-hidden="true" /> : <IconPlus aria-hidden="true" />}
+        {isInItinerary ? "已加入行程" : "加入行程"}
+      </button>
       <Link href={`/restaurants/${restaurant.id}`}>
         查看餐廳
         <IconArrowRight aria-hidden="true" />
