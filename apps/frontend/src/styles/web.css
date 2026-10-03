@@ -208,12 +208,37 @@
   margin: 0;
 }
 
+.admin-tourism-import__history-bar {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #d9e7dd;
+}
+
+.admin-tourism-import__summary {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  color: var(--color-ink);
+  font-size: 0.82rem;
+}
+
+.admin-tourism-import__summary small {
+  color: var(--color-ink-muted);
+}
+
+.admin-tourism-import__history-toggle {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 .admin-tourism-import__runs {
   display: grid;
   grid-column: 1 / -1;
   gap: 7px;
-  padding-top: 12px;
-  border-top: 1px solid #d9e7dd;
 }
 
 .admin-tourism-import__runs > div {

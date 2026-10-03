@@ -11,6 +11,7 @@ import {
   isTourismImportBatchComplete,
   latestTourismRunPerDataset,
   newTourismImportRuns,
+  summarizeLatestTourismRuns,
   tourismImportDatasets,
 } from "@/features/admin/utils/tourism-import-status";
 
@@ -25,6 +26,11 @@ const statusLabels: Record<TourismImportRun["status"], string> = {
   succeeded: "完成",
   failed: "失敗",
 };
+const summaryStatusLabels = {
+  running: "匯入中",
+  partial: "部分失敗",
+  succeeded: "完成",
+} as const;
 const pollIntervalMs = 2000;
 const resumeQuietPeriodMs = 10000;
 
@@ -42,6 +48,7 @@ export function TourismImportPanel({ onImportCompleted }: { onImportCompleted: (
   const [tracking, setTracking] = useState(false);
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(true);
   const [starting, setStarting] = useState(false);
   const [statusCheckFailed, setStatusCheckFailed] = useState(false);
   const [error, setError] = useState("");
@@ -84,11 +91,13 @@ export function TourismImportPanel({ onImportCompleted }: { onImportCompleted: (
   useEffect(() => {
     if (!dialogOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setDialogOpen(false);
+      if (event.key !== "Escape") return;
+      setDialogOpen(false);
+      if (dialog === "complete" || dialog === "partial") setHistoryExpanded(false);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [dialogOpen]);
+  }, [dialog, dialogOpen]);
 
   useEffect(() => {
     if (!tracking) return;
@@ -153,6 +162,7 @@ export function TourismImportPanel({ onImportCompleted }: { onImportCompleted: (
     [runs, starting, tracking],
   );
   const latestBatchRuns = useMemo(() => latestTourismRunPerDataset(batchRuns), [batchRuns]);
+  const latestRunSummary = useMemo(() => summarizeLatestTourismRuns(runs), [runs]);
   const successfulCounts = useMemo(
     () =>
       batchRuns
@@ -203,6 +213,11 @@ export function TourismImportPanel({ onImportCompleted }: { onImportCompleted: (
     }
   }
 
+  function closeImportDialog() {
+    setDialogOpen(false);
+    if (dialog === "complete" || dialog === "partial") setHistoryExpanded(false);
+  }
+
   const dialogTitle =
     dialog === "complete"
       ? "觀光資料匯入完成"
@@ -241,20 +256,49 @@ export function TourismImportPanel({ onImportCompleted }: { onImportCompleted: (
       ) : null}
       {error ? <p className="form-message is-error">{error}</p> : null}
       {runs.length ? (
-        <div className="admin-tourism-import__runs" aria-label="觀光資料匯入紀錄">
-          {runs.map((run) => (
-            <div key={run.id}>
+        <>
+          <div className="admin-tourism-import__history-bar">
+            <div className="admin-tourism-import__summary" aria-live="polite">
               <span>
-                {datasetLabels[run.source_dataset]} · {statusLabels[run.status]}
+                最近匯入 {latestRunSummary.datasetCount} 類資料 ·{" "}
+                {summaryStatusLabels[latestRunSummary.status]}
               </span>
               <small>
-                {run.status === "succeeded"
-                  ? `新增 ${run.inserted_count}／更新 ${run.updated_count}／未變更 ${run.unchanged_count}`
-                  : run.error_message || new Date(run.started_at).toLocaleString("zh-TW")}
+                新增 {latestRunSummary.inserted}／更新 {latestRunSummary.updated}／未變更{" "}
+                {latestRunSummary.unchanged}
               </small>
             </div>
-          ))}
-        </div>
+            <button
+              type="button"
+              className="button button--ghost admin-tourism-import__history-toggle"
+              aria-controls="admin-tourism-import-runs"
+              aria-expanded={historyExpanded}
+              onClick={() => setHistoryExpanded((expanded) => !expanded)}
+            >
+              {historyExpanded ? "⌃ 收合紀錄" : "⌄ 展開紀錄"}
+            </button>
+          </div>
+          {historyExpanded ? (
+            <div
+              id="admin-tourism-import-runs"
+              className="admin-tourism-import__runs"
+              aria-label="觀光資料匯入紀錄"
+            >
+              {runs.map((run) => (
+                <div key={run.id}>
+                  <span>
+                    {datasetLabels[run.source_dataset]} · {statusLabels[run.status]}
+                  </span>
+                  <small>
+                    {run.status === "succeeded"
+                      ? `新增 ${run.inserted_count}／更新 ${run.updated_count}／未變更 ${run.unchanged_count}`
+                      : run.error_message || new Date(run.started_at).toLocaleString("zh-TW")}
+                  </small>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </>
       ) : null}
       {dialog && dialogOpen ? (
         <div className="app-confirm-dialog__backdrop">
@@ -314,7 +358,7 @@ export function TourismImportPanel({ onImportCompleted }: { onImportCompleted: (
               <button
                 type="button"
                 className="button button--primary"
-                onClick={() => setDialogOpen(false)}
+                onClick={closeImportDialog}
                 autoFocus
               >
                 {dialog === "running" ? "背景等待" : "關閉"}

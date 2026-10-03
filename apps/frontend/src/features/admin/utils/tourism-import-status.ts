@@ -7,6 +7,14 @@ export const tourismImportDatasets: TourismImportRun["source_dataset"][] = [
   "service_site",
 ];
 
+export type TourismImportSummary = {
+  datasetCount: number;
+  status: "running" | "partial" | "succeeded";
+  inserted: number;
+  updated: number;
+  unchanged: number;
+};
+
 export function latestTourismRunPerDataset(
   runs: TourismImportRun[],
 ): Map<TourismImportRun["source_dataset"], TourismImportRun> {
@@ -18,6 +26,21 @@ export function latestTourismRunPerDataset(
     }
   }
   return latest;
+}
+
+export function summarizeLatestTourismRuns(runs: TourismImportRun[]): TourismImportSummary {
+  const latestRuns = [...latestTourismRunPerDataset(runs).values()];
+  return {
+    datasetCount: latestRuns.length,
+    status: latestRuns.some((run) => run.status === "running")
+      ? "running"
+      : latestRuns.some((run) => run.status === "failed")
+        ? "partial"
+        : "succeeded",
+    inserted: latestRuns.reduce((total, run) => total + run.inserted_count, 0),
+    updated: latestRuns.reduce((total, run) => total + run.updated_count, 0),
+    unchanged: latestRuns.reduce((total, run) => total + run.unchanged_count, 0),
+  };
 }
 
 export function newTourismImportRuns(

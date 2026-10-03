@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { TourismImportRun } from "@/features/admin/api/admin-api";
-import { isTourismImportBatchComplete, newTourismImportRuns } from "./tourism-import-status";
+import {
+  isTourismImportBatchComplete,
+  newTourismImportRuns,
+  summarizeLatestTourismRuns,
+} from "./tourism-import-status";
 
 function run(
   id: string,
@@ -69,5 +73,24 @@ describe("tourism import status", () => {
       run("service", "service_site", "succeeded", "2026-10-03T10:04:00Z"),
     ];
     expect(isTourismImportBatchComplete(runs, baseline)).toBe(true);
+  });
+
+  it("summarizes only the latest run for each dataset", () => {
+    const runs = [
+      { ...run("old-food", "food", "succeeded", "2026-10-03T10:00:00Z"), unchanged_count: 20 },
+      { ...run("latest-food", "food", "succeeded", "2026-10-03T10:05:00Z"), inserted_count: 3 },
+      {
+        ...run("latest-attraction", "attraction", "succeeded", "2026-10-03T10:06:00Z"),
+        updated_count: 4,
+      },
+    ];
+
+    expect(summarizeLatestTourismRuns(runs)).toEqual({
+      datasetCount: 2,
+      status: "succeeded",
+      inserted: 3,
+      updated: 4,
+      unchanged: 0,
+    });
   });
 });

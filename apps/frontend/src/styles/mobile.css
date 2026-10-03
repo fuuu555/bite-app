@@ -68,6 +68,16 @@
     width: 100%;
   }
 
+  .admin-tourism-import__history-bar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .admin-tourism-import__history-toggle {
+    width: 100%;
+  }
+
   .admin-tourism-import__runs > div {
     align-items: flex-start;
     flex-direction: column;
